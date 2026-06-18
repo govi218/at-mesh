@@ -49,6 +49,14 @@ func (s *Server) handleToken(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "client_id mismatch"})
 	}
 
+	// Validate client_secret if clients are registered
+	if req.ClientId != "" {
+		client := s.validateClient(req.ClientId, req.ClientSecret, "")
+		if client == nil {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_client", "error_description": "invalid client credentials"})
+		}
+	}
+
 	// Validate redirect_uri matches
 	if req.RedirectUri != "" && req.RedirectUri != authReq.RedirectUri {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "redirect_uri mismatch"})

@@ -34,6 +34,7 @@ type Args struct {
 	SessionSecret string
 	Version       string
 	LogLevel      string
+	Clients       []OAuthClient
 }
 
 type Server struct {
@@ -49,6 +50,12 @@ type Server struct {
 	validator     *validator.Validate
 }
 
+type OAuthClient struct {
+	ID           string
+	Secret       string
+	RedirectURIs []string
+}
+
 type config struct {
 	Addr          string
 	Hostname      string
@@ -57,6 +64,7 @@ type config struct {
 	AdminEmail    string
 	Version       string
 	SessionSecret string
+	Clients       []OAuthClient
 }
 
 func New(args *Args) (*Server, error) {
@@ -107,6 +115,7 @@ func New(args *Args) (*Server, error) {
 		AdminEmail:    args.AdminEmail,
 		Version:       args.Version,
 		SessionSecret: args.SessionSecret,
+		Clients:       args.Clients,
 	}
 
 	// Init OIDC provider
@@ -158,6 +167,7 @@ func (s *Server) setupEcho() {
 	// OIDC flow
 	e.GET("/authorize", s.handleAuthorizeGet)
 	e.POST("/authorize", s.handleAuthorizePost)
+	e.GET("/authorize/callback", s.handleAuthorizeCallback)
 	e.POST("/token", s.handleToken)
 	e.GET("/userinfo", s.handleUserinfo)
 
@@ -200,4 +210,39 @@ func parseLogLevel(level string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+// findClient looks up a registered OAuth client by ID.
+func (s *Server) findClient(clientID string) *OAuthClient {
+	for i := range s.config.Clients {
+		if s.config.Clients[i].ID == clientID {
+			return &s.config.Clients[i]
+		}
+	}
+	return nil
+}
+
+// validateClient validates a client_id/client_secret pair and checks
+// that the redirect_uri is registered for that client.
+func (s *Server) validateClient(clientID, clientSecret, redirectURI string) *OAuthClient {
+	client := s.findClient(clientID)
+	if client == nil {
+		return nil
+	}
+	if client.Secret != "" && client.Secret != clientSecret {
+		return nil
+	}
+	if len(client.RedirectURIs) > 0 && redirectURI != "" {
+		found := false
+		for _, uri := range client.RedirectURIs {
+			if uri == redirectURI {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil
+		}
+	}
+	return client
 }

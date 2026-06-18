@@ -34,10 +34,6 @@ create-jwk: ## Create a JWK for signing OIDC tokens
 test: ## Run tests
 	go clean -testcache && go test -v ./...
 
-.PHONY: test-local
-test-local: ## Run local smoke test (requires at-mesh running)
-	./scripts/test-local.sh
-
 .PHONY: lint
 lint: ## Verify code style and run static checks
 	go vet ./...

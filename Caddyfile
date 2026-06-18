@@ -1,0 +1,3 @@
+mesh.glados.computer {
+	reverse_proxy at-mesh:9090
+}

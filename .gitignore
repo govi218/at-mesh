@@ -1,0 +1,21 @@
+# Binaries
+at-mesh
+dist/
+
+# Data
+*.db
+*.db-journal
+
+# Keys
+keys/
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store

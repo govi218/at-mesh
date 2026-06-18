@@ -1,0 +1,22 @@
+services:
+  at-mesh:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: at-mesh
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - atmesh-data:/data
+      - ./keys:/data/keys:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - mesh
+
+volumes:
+  atmesh-data:
+
+networks:
+  mesh:
+    external: true

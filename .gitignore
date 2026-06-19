@@ -19,3 +19,6 @@ keys/
 
 # OS
 .DS_Store
+
+# AI
+.letta

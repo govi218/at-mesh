@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -64,6 +65,8 @@ func (s *Server) handleToken(e echo.Context) error {
 
 	// PKCE validation (Phase 1: skip if no challenge was stored)
 	// Phase 2 will enforce PKCE
+
+	log.Print("authhzzz", authReq)
 
 	// Issue id_token
 	idToken, err := s.oidcProvider.IssueIDToken(

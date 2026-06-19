@@ -54,9 +54,6 @@ func setupTestServer(t *testing.T) *Server {
 func startTestServer(t *testing.T, s *Server) string {
 	t.Helper()
 
-	// Use httptest instead of real listener
-	// But Server.Serve() needs a real listener, so we'll just use the echo handler
-	// Actually, let's just start it on a random port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -70,6 +67,18 @@ func startTestServer(t *testing.T, s *Server) string {
 	t.Cleanup(func() { listener.Close() })
 
 	return "http://" + listener.Addr().String()
+}
+
+// makeClient creates an HTTP client that doesn't follow redirects
+// but does store cookies (needed for sessions).
+func makeClient() *http.Client {
+	jar, _ := cookiejar.New(nil)
+	return &http.Client{
+		Jar: jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 }
 
 func TestDiscovery(t *testing.T) {
@@ -155,7 +164,7 @@ func TestWebFinger(t *testing.T) {
 	var wf struct {
 		Subject string `json:"subject"`
 		Links   []struct {
-			Rel string `json:"rel"`
+			Rel  string `json:"rel"`
 			Href string `json:"href"`
 		} `json:"links"`
 	}
@@ -171,14 +180,11 @@ func TestWebFinger(t *testing.T) {
 	}
 }
 
-func TestAuthorizeValidClient(t *testing.T) {
+func TestAuthorizeShowsPage(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse // don't follow redirects
-	}}
+	client := makeClient()
 
 	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid+profile+email&state=test123")
 	if err != nil {
@@ -186,19 +192,21 @@ func TestAuthorizeValidClient(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 303 {
-		t.Fatalf("status %d, want 303", resp.StatusCode)
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
 	}
 
-	loc := resp.Header.Get("Location")
-	if loc == "" {
-		t.Fatal("no Location header")
+	body, _ := io.ReadAll(resp.Body)
+	html := string(body)
+
+	if !strings.Contains(html, "at-mesh") {
+		t.Error("page doesn't contain 'at-mesh'")
 	}
-	if !strings.Contains(loc, "http://localhost:9999/callback?code=") {
-		t.Errorf("redirect = %v, want callback with code", loc)
+	if !strings.Contains(html, "headscale") {
+		t.Error("page doesn't show client_id")
 	}
-	if !strings.Contains(loc, "state=test123") {
-		t.Errorf("state not preserved in %v", loc)
+	if !strings.Contains(html, "phase1") {
+		t.Error("page doesn't have phase1 form")
 	}
 }
 
@@ -216,10 +224,9 @@ func TestAuthorizeUnknownClient(t *testing.T) {
 		t.Fatalf("status %d, want 400", resp.StatusCode)
 	}
 
-	var body map[string]string
-	json.NewDecoder(resp.Body).Decode(&body)
-	if body["error"] != "invalid_client" {
-		t.Errorf("error = %v, want invalid_client", body["error"])
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "Unknown Client") {
+		t.Errorf("body doesn't show unknown client error, got: %s", body)
 	}
 }
 
@@ -237,10 +244,77 @@ func TestAuthorizeBadRedirectURI(t *testing.T) {
 		t.Fatalf("status %d, want 400", resp.StatusCode)
 	}
 
-	var body map[string]string
-	json.NewDecoder(resp.Body).Decode(&body)
-	if !strings.Contains(body["error_description"], "redirect_uri") {
-		t.Errorf("error_description = %v, want redirect_uri mention", body["error_description"])
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "Invalid Redirect URI") {
+		t.Errorf("body doesn't show redirect_uri error, got: %s", body)
+	}
+}
+
+// fullAuthorizeFlow does the two-step Phase 1 flow:
+// 1. GET /authorize → get session cookie + HTML page
+// 2. POST /authorize with phase1=true → get success page with redirect URL
+// Returns the redirect URL (containing the code).
+func fullAuthorizeFlow(t *testing.T, base string) string {
+	client := makeClient()
+
+	// Step 1: GET /authorize — get the page + session cookie
+	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid+profile+email&state=test")
+	if err != nil {
+		t.Fatalf("authorize GET: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Fatalf("authorize GET status %d, want 200", resp.StatusCode)
+	}
+
+	// Step 2: POST /authorize with phase1=true — auto-approve
+	resp, err = client.PostForm(base+"/authorize", url.Values{
+		"phase1": {"true"},
+	})
+	if err != nil {
+		t.Fatalf("authorize POST: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Fatalf("authorize POST status %d, want 200", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	html := string(body)
+
+	// The success page contains the redirect URL in the script tag
+	// Extract it from: window.location.href = "..."
+	idx := strings.Index(html, `window.location.href = "`)
+	if idx == -1 {
+		t.Fatalf("success page doesn't contain redirect URL: %s", html)
+	}
+	start := idx + len(`window.location.href = "`)
+	end := strings.Index(html[start:], `"`)
+	if end == -1 {
+		t.Fatalf("can't find end of redirect URL: %s", html)
+	}
+
+	redirectURL := html[start : start+end]
+	if !strings.Contains(redirectURL, "code=") {
+		t.Fatalf("redirect URL doesn't contain code: %s", redirectURL)
+	}
+
+	return redirectURL
+}
+
+func TestPhase1AutoApprove(t *testing.T) {
+	s := setupTestServer(t)
+	base := startTestServer(t, s)
+
+	redirectURL := fullAuthorizeFlow(t, base)
+
+	if !strings.Contains(redirectURL, "http://localhost:9999/callback?code=") {
+		t.Errorf("redirect = %v, want callback with code", redirectURL)
+	}
+	if !strings.Contains(redirectURL, "state=test") {
+		t.Errorf("state not preserved in %v", redirectURL)
 	}
 }
 
@@ -248,23 +322,10 @@ func TestTokenExchange(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	// Get a code first
-	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	}}
-
-	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid+profile+email&state=test")
-	if err != nil {
-		t.Fatalf("authorize: %v", err)
-	}
-	resp.Body.Close()
-
-	loc := resp.Header.Get("Location")
-	u, _ := url.Parse(loc)
+	redirectURL := fullAuthorizeFlow(t, base)
+	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
-	// Exchange code for token
 	tokenResp, err := http.PostForm(base+"/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -297,23 +358,10 @@ func TestTokenWrongSecret(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	// Get a code
-	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	}}
-
-	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid&state=test")
-	if err != nil {
-		t.Fatalf("authorize: %v", err)
-	}
-	resp.Body.Close()
-
-	loc := resp.Header.Get("Location")
-	u, _ := url.Parse(loc)
+	redirectURL := fullAuthorizeFlow(t, base)
+	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
-	// Exchange with wrong secret
 	tokenResp, err := http.PostForm(base+"/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -341,20 +389,8 @@ func TestTokenCodeReuse(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	// Get a code
-	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	}}
-
-	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid&state=test")
-	if err != nil {
-		t.Fatalf("authorize: %v", err)
-	}
-	resp.Body.Close()
-
-	loc := resp.Header.Get("Location")
-	u, _ := url.Parse(loc)
+	redirectURL := fullAuthorizeFlow(t, base)
+	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
 	// First exchange — should succeed

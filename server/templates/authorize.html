@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>at-mesh — Authorize</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 2.5rem;
+            max-width: 420px;
+            width: 100%;
+        }
+        .logo {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #58a6ff;
+            margin-bottom: 0.25rem;
+        }
+        .logo .dash { color: #8b949e; }
+        .subtitle {
+            color: #8b949e;
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+        .client-info {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.75rem;
+        }
+        .client-info .label {
+            color: #8b949e;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        .client-info .value {
+            color: #c9d1d9;
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
+        .auto-approve {
+            background: #3d2e00;
+            border: 1px solid #9e6a03;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #d29922;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .auto-approve strong { color: #e3b341; }
+        label {
+            display: block;
+            font-size: 0.875rem;
+            color: #c9d1d9;
+            margin-bottom: 0.5rem;
+        }
+        input[type="text"] {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            color: #c9d1d9;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        input[type="text"]:focus {
+            border-color: #58a6ff;
+        }
+        input[type="text"]::placeholder {
+            color: #484f58;
+        }
+        .hint {
+            color: #8b949e;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        button {
+            width: 100%;
+            background: #238636;
+            border: none;
+            border-radius: 6px;
+            padding: 0.75rem;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: background 0.15s;
+        }
+        button:hover {
+            background: #2ea043;
+        }
+        .divider {
+            border-top: 1px solid #30363d;
+            margin: 1.5rem 0;
+        }
+        .phase2-future {
+            color: #484f58;
+            font-size: 0.75rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">at<span class="dash">-</span>mesh</div>
+        <div class="subtitle">AT Protocol identity for mesh networks</div>
+
+        <div class="client-info">
+            <div class="label">Requesting access</div>
+            <div class="value">__CLIENT_ID__</div>
+        </div>
+
+        <div class="auto-approve">
+            <strong>Phase 1 — Auto-approve mode</strong><br>
+            No AT Protocol authentication required. Click continue to receive an authorization code.
+        </div>
+
+        <form action="/authorize" method="POST">
+            <input type="hidden" name="phase1" value="true">
+            <button type="submit">Continue</button>
+        </form>
+
+        <div class="divider"></div>
+
+        <div class="phase2-future">
+            Phase 2 will ask for your AT Protocol handle here.
+        </div>
+    </div>
+</body>
+</html>

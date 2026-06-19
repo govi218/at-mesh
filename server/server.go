@@ -17,8 +17,8 @@ import (
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	slogecho "github.com/samber/slog-echo"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	slogecho "github.com/samber/slog-echo"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -38,16 +38,16 @@ type Args struct {
 }
 
 type Server struct {
-	echo          *echo.Echo
-	db            *db.DB
-	logger        *slog.Logger
-	config        *config
-	privateKey    *ecdsa.PrivateKey
-	jwkKey        jwk.Key
-	oidcProvider  *oidc.Provider
-	headscale     *headscale.Client
-	sessionStore  sessions.Store
-	validator     *validator.Validate
+	echo         *echo.Echo
+	db           *db.DB
+	logger       *slog.Logger
+	config       *config
+	privateKey   *ecdsa.PrivateKey
+	jwkKey       jwk.Key
+	oidcProvider *oidc.Provider
+	headscale    *headscale.Client
+	sessionStore sessions.Store
+	validator    *validator.Validate
 }
 
 type OAuthClient struct {
@@ -133,6 +133,10 @@ func New(args *Args) (*Server, error) {
 
 	// Session store
 	cookieStore := sessions.NewCookieStore([]byte(args.SessionSecret))
+	cookieStore.Options.Secure = false
+	cookieStore.Options.SameSite = http.SameSiteLaxMode
+	cookieStore.Options.HttpOnly = true
+	cookieStore.Options.Path = "/"
 
 	s := &Server{
 		db:           database,

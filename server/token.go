@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -35,9 +34,14 @@ func (s *Server) handleToken(e echo.Context) error {
 	}
 
 	// Look up the auth request
-	var authReq db.AuthRequest
+	var authReq db.OidcAuthCode
 	if err := s.db.DB.Where("code = ?", req.Code).First(&authReq).Error; err != nil {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "code not found"})
+	}
+
+	// One-time use: reject if code has already been exchanged
+	if authReq.AccessToken != "" {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "code already used"})
 	}
 
 	// Validate code hasn't expired
@@ -63,10 +67,7 @@ func (s *Server) handleToken(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "redirect_uri mismatch"})
 	}
 
-	// PKCE validation (Phase 1: skip if no challenge was stored)
-	// Phase 2 will enforce PKCE
-
-	log.Print("authhzzz", authReq)
+	// TODO: PKCE validation
 
 	// Issue id_token
 	idToken, err := s.oidcProvider.IssueIDToken(
@@ -80,11 +81,20 @@ func (s *Server) handleToken(e echo.Context) error {
 		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "server_error"})
 	}
 
-	// Delete the used auth request (one-time use)
-	s.db.DB.Where("code = ?", req.Code).Delete(&db.AuthRequest{})
+	// Generate an opaque access token and store it on the auth request
+	// so /userinfo can look up the claims by access token.
+	accessToken := oidc.GenerateAuthCode()
+	// Clear the code (one-time use) but keep the row for userinfo lookups.
+	if err := s.db.DB.Model(&authReq).Updates(map[string]interface{}{
+		"access_token": accessToken,
+		"code":         "",
+	}).Error; err != nil {
+		s.logger.Error("error storing access token", "err", err)
+		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "server_error"})
+	}
 
 	return e.JSON(http.StatusOK, map[string]string{
-		"access_token": oidc.GenerateAuthCode(), // opaque token, not used for resource access
+		"access_token": accessToken,
 		"token_type":   "Bearer",
 		"expires_in":   "3600",
 		"id_token":     idToken,
@@ -97,13 +107,17 @@ func (s *Server) handleUserinfo(e echo.Context) error {
 		return e.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 	}
 
-	// Phase 1: return placeholder claims
-	// Phase 2: parse the access token and return real claims
-	_ = authHeader
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+	// Look up the auth request by access token
+	var authReq db.OidcAuthCode
+	if err := s.db.DB.Where("access_token = ?", accessToken).First(&authReq).Error; err != nil {
+		return e.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
+	}
 
 	return e.JSON(http.StatusOK, map[string]string{
-		"sub":                "did:plc:placeholder",
-		"name":               "placeholder",
-		"preferred_username": "placeholder",
+		"sub":                authReq.Sub,
+		"name":               authReq.PreferredUsername,
+		"preferred_username": authReq.PreferredUsername,
 	})
 }

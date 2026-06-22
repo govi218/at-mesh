@@ -2,12 +2,10 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/govi218/at-mesh/atproto"
 	"github.com/govi218/at-mesh/internal/db"
 	"github.com/govi218/at-mesh/oidc"
 	"github.com/labstack/echo-contrib/session"
@@ -96,38 +94,65 @@ func (s *Server) handleAuthorizePost(e echo.Context) error {
 		return s.renderError(e, "Missing Handle", "An AT Protocol handle is required.")
 	}
 
-	// Resolve handle → DID
-	did, err := atproto.ResolveHandle(handle)
-	if err != nil {
-		s.logger.Error("error resolving handle", "handle", handle, "err", err)
-		return s.renderError(e, "Handle Not Found", fmt.Sprintf("Could not resolve handle '%s'.", handle))
+	// Get the OIDC params from the session (stored by handleAuthorizeGet)
+	sess, _ := session.Get("atmesh", e)
+	oidcClientId, _ := sess.Values["client_id"].(string)
+	oidcRedirectUri, _ := sess.Values["redirect_uri"].(string)
+	oidcScope, _ := sess.Values["scope"].(string)
+	oidcState, _ := sess.Values["state"].(string)
+	oidcNonce, _ := sess.Values["nonce"].(string)
+	oidcCodeChallenge, _ := sess.Values["code_challenge"].(string)
+	oidcCodeChallengeMethod, _ := sess.Values["code_challenge_method"].(string)
+
+	if oidcClientId == "" || oidcRedirectUri == "" {
+		return s.renderError(e, "Session Expired", "Please restart the authorization flow.")
 	}
 
-	// Resolve DID → PDS endpoint
-	pdsUrl, err := atproto.ResolvePDSEndpoint(did)
+	// Start the AT Protocol OAuth flow via indigo.
+	// StartAuthFlow resolves handle → DID → PDS → auth server metadata → PAR.
+	// The CapturingStore wrapper captures the OAuth state that indigo generates.
+	ctx := e.Request().Context()
+	redirectURL, err := s.oauthApp.StartAuthFlow(ctx, handle)
 	if err != nil {
-		s.logger.Error("error resolving PDS", "did", did, "err", err)
-		return s.renderError(e, "PDS Not Found", fmt.Sprintf("Could not find a PDS for DID '%s'.", did))
+		s.logger.Error("error starting AT Protocol OAuth flow", "handle", handle, "err", err)
+		return s.renderError(e, "Authentication Failed", fmt.Sprintf("Could not start AT Protocol authentication: %v", err))
 	}
 
-	// Phase 2: redirect to PDS for AT Protocol OAuth
-	// For now, log and return not implemented
-	s.logger.Info("resolved handle to PDS", "handle", handle, "did", did, "pds", pdsUrl)
-	return s.renderError(e, "Not Implemented", "AT Protocol OAuth flow is coming in Phase 2. Use the Phase 1 auto-approve button instead.")
-}
+	// Get the OAuth state that indigo generated and saved via the CapturingStore
+	oauthState := s.capturingStore.GetLastState()
+	if oauthState == "" {
+		s.logger.Error("could not capture OAuth state from StartAuthFlow")
+		return s.renderError(e, "Server Error", "Failed to initialize authentication flow.")
+	}
 
-// handleAuthorizeCallback handles the callback from the PDS after
-// AT Protocol OAuth completes. Phase 2 will fill this in.
-func (s *Server) handleAuthorizeCallback(e echo.Context) error {
-	return s.renderError(e, "Not Implemented", "AT Protocol OAuth callback is coming in Phase 2.")
+	// Store the OIDC params in the OidcBridge table, keyed by the OAuth state.
+	// When the PDS redirects back to /oauth/callback, we'll look up the OIDC
+	// params using this state — no dependency on session cookies surviving
+	// the cross-site redirect.
+	bridge := &db.OidcBridge{
+		OAuthState:              oauthState,
+		OidcClientId:            oidcClientId,
+		OidcRedirectUri:         oidcRedirectUri,
+		OidcScope:               oidcScope,
+		OidcState:               oidcState,
+		OidcNonce:               oidcNonce,
+		OidcCodeChallenge:       oidcCodeChallenge,
+		OidcCodeChallengeMethod: oidcCodeChallengeMethod,
+		Handle:                  handle,
+	}
+	if err := s.oauthStore.SaveOidcBridge(bridge); err != nil {
+		s.logger.Error("error saving OIDC bridge", "err", err)
+		return s.renderError(e, "Server Error", "Failed to save authorization state.")
+	}
+
+	// Redirect the user to the PDS authorization page
+	return e.Redirect(http.StatusSeeOther, redirectURL)
 }
 
 // autoApproveFromSession reads the authorize params from the session
 // and issues an auth code (Phase 1 auto-approve flow).
 func (s *Server) autoApproveFromSession(e echo.Context) error {
 	sess, _ := session.Get("atmesh", e)
-	log.Printf("sessionnnnn", sess)
-	log.Printf("valuesss", sess.Values)
 
 	clientId, _ := sess.Values["client_id"].(string)
 	redirectUri, _ := sess.Values["redirect_uri"].(string)
@@ -147,7 +172,7 @@ func (s *Server) autoApproveFromSession(e echo.Context) error {
 
 	code := oidc.GenerateAuthCode()
 
-	authReq := &db.AuthRequest{
+	authReq := &db.OidcAuthCode{
 		Code:                code,
 		ClientId:            clientId,
 		RedirectUri:         redirectUri,
@@ -186,7 +211,7 @@ func (s *Server) autoApprove(e echo.Context, input *AuthorizeGetInput) error {
 
 	code := oidc.GenerateAuthCode()
 
-	authReq := &db.AuthRequest{
+	authReq := &db.OidcAuthCode{
 		Code:                code,
 		ClientId:            input.ClientId,
 		RedirectUri:         input.RedirectUri,

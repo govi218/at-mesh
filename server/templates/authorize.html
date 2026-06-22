@@ -54,17 +54,6 @@
             font-size: 0.9rem;
             font-family: monospace;
         }
-        .auto-approve {
-            background: #3d2e00;
-            border: 1px solid #9e6a03;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            color: #d29922;
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-        .auto-approve strong { color: #e3b341; }
         label {
             display: block;
             font-size: 0.875rem;
@@ -113,10 +102,32 @@
             border-top: 1px solid #30363d;
             margin: 1.5rem 0;
         }
-        .phase2-future {
-            color: #484f58;
-            font-size: 0.75rem;
-            text-align: center;
+        .phase1-fallback {
+            background: #3d2e00;
+            border: 1px solid #9e6a03;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #d29922;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .phase1-fallback strong { color: #e3b341; }
+        .phase1-btn {
+            width: 100%;
+            background: transparent;
+            border: 1px solid #9e6a03;
+            border-radius: 6px;
+            padding: 0.75rem;
+            color: #d29922;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            transition: background 0.15s;
+        }
+        .phase1-btn:hover {
+            background: #3d2e00;
         }
     </style>
 </head>
@@ -130,21 +141,23 @@
             <div class="value">__CLIENT_ID__</div>
         </div>
 
-        <div class="auto-approve">
-            <strong>Phase 1 — Auto-approve mode</strong><br>
-            No AT Protocol authentication required. Click continue to receive an authorization code.
-        </div>
-
         <form action="/authorize" method="POST">
-            <input type="hidden" name="phase1" value="true">
-            <button type="submit">Continue</button>
+            <label for="handle">AT Protocol handle</label>
+            <input type="text" name="handle" id="handle" placeholder="e.g. alice.bsky.social" autocomplete="username" required>
+            <div class="hint">You'll be redirected to your PDS to authenticate.</div>
+            <button type="submit">Continue with AT Protocol</button>
         </form>
 
         <div class="divider"></div>
 
-        <div class="phase2-future">
-            Phase 2 will ask for your AT Protocol handle here.
+        <div class="phase1-fallback">
+            <strong>Phase 1 — Auto-approve (debug)</strong><br>
+            Skip AT Protocol authentication and get a placeholder code.
         </div>
+        <form action="/authorize" method="POST">
+            <input type="hidden" name="phase1" value="true">
+            <button type="submit" class="phase1-btn">Auto-approve (no auth)</button>
+        </form>
     </div>
 </body>
 </html>

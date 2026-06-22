@@ -10,9 +10,10 @@ type DB struct {
 	*gorm.DB
 }
 
-type AuthRequest struct {
+type OidcAuthCode struct {
 	ID                  uint           `gorm:"primaryKey"`
-	Code                string         `gorm:"uniqueIndex;not null"`
+	Code                string         `gorm:"index"`
+	AccessToken         string         `gorm:"index"`
 	ClientId            string         `gorm:"not null"`
 	RedirectUri         string         `gorm:"not null"`
 	Scope               string

@@ -22,7 +22,7 @@ func setupTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	if err := gormDb.AutoMigrate(&db.AuthRequest{}); err != nil {
+	if err := gormDb.AutoMigrate(&db.OidcAuthCode{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 
@@ -438,8 +438,30 @@ func TestUserinfo(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
+	// Do a full Phase 1 flow to get a real access token
+	redirectURL := fullAuthorizeFlow(t, base)
+	u, _ := url.Parse(redirectURL)
+	code := u.Query().Get("code")
+
+	tokenResp, err := http.PostForm(base+"/token", url.Values{
+		"grant_type":    {"authorization_code"},
+		"code":          {code},
+		"client_id":     {"headscale"},
+		"client_secret": {"secret123"},
+		"redirect_uri":  {"http://localhost:9999/callback"},
+	})
+	if err != nil {
+		t.Fatalf("token: %v", err)
+	}
+	defer tokenResp.Body.Close()
+
+	var token map[string]string
+	json.NewDecoder(tokenResp.Body).Decode(&token)
+	accessToken := token["access_token"]
+
+	// Now call userinfo with the real access token
 	req, _ := http.NewRequest("GET", base+"/userinfo", nil)
-	req.Header.Set("Authorization", "Bearer test-token")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

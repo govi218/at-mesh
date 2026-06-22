@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 	"github.com/go-playground/validator"
 	"github.com/gorilla/sessions"
 	"github.com/govi218/at-mesh/headscale"
@@ -38,16 +39,19 @@ type Args struct {
 }
 
 type Server struct {
-	echo         *echo.Echo
-	db           *db.DB
-	logger       *slog.Logger
-	config       *config
-	privateKey   *ecdsa.PrivateKey
-	jwkKey       jwk.Key
-	oidcProvider *oidc.Provider
-	headscale    *headscale.Client
-	sessionStore sessions.Store
-	validator    *validator.Validate
+	echo           *echo.Echo
+	db             *db.DB
+	oauthStore     *db.OAuthStore
+	capturingStore *db.CapturingStore
+	logger         *slog.Logger
+	config         *config
+	privateKey     *ecdsa.PrivateKey
+	jwkKey         jwk.Key
+	oidcProvider   *oidc.Provider
+	headscale      *headscale.Client
+	oauthApp       *oauth.ClientApp
+	sessionStore   sessions.Store
+	validator      *validator.Validate
 }
 
 type OAuthClient struct {
@@ -101,11 +105,28 @@ func New(args *Args) (*Server, error) {
 		return nil, fmt.Errorf("error opening database: %w", err)
 	}
 
-	if err := gormDb.AutoMigrate(&db.AuthRequest{}); err != nil {
+	if err := gormDb.AutoMigrate(&db.OidcAuthCode{}); err != nil {
 		return nil, fmt.Errorf("error migrating database: %w", err)
 	}
 
+	// Init OAuth store for indigo AT Protocol OAuth client
+	oauthStore := db.NewOAuthStore(gormDb)
+	if err := oauthStore.AutoMigrate(); err != nil {
+		return nil, fmt.Errorf("error migrating OAuth database: %w", err)
+	}
+
 	database := &db.DB{DB: gormDb}
+
+	// Init indigo OAuth client app (public client for localhost dev)
+	// Wrap the store in a CapturingStore so we can retrieve the OAuth state
+	// that indigo generates inside StartAuthFlow.
+	callbackURL := fmt.Sprintf("http://127.0.0.1%s/oauth/callback", args.Addr)
+	if args.Addr == ":80" || args.Addr == "80" {
+		callbackURL = "http://127.0.0.1/oauth/callback"
+	}
+	oauthConfig := oauth.NewLocalhostConfig(callbackURL, []string{"atproto"})
+	capturingStore := db.NewCapturingStore(oauthStore)
+	oauthApp := oauth.NewClientApp(&oauthConfig, capturingStore)
 
 	cfg := &config{
 		Addr:          args.Addr,
@@ -139,15 +160,18 @@ func New(args *Args) (*Server, error) {
 	cookieStore.Options.Path = "/"
 
 	s := &Server{
-		db:           database,
-		logger:       logger,
-		config:       cfg,
-		privateKey:   &privateKey,
-		jwkKey:       keySet,
-		oidcProvider: oidcProvider,
-		headscale:    hsClient,
-		sessionStore: cookieStore,
-		validator:    validator.New(),
+		db:             database,
+		oauthStore:     oauthStore,
+		capturingStore: capturingStore,
+		logger:         logger,
+		config:         cfg,
+		privateKey:     &privateKey,
+		jwkKey:         keySet,
+		oidcProvider:   oidcProvider,
+		headscale:      hsClient,
+		oauthApp:       oauthApp,
+		sessionStore:   cookieStore,
+		validator:      validator.New(),
 	}
 
 	s.setupEcho()
@@ -171,9 +195,13 @@ func (s *Server) setupEcho() {
 	// OIDC flow
 	e.GET("/authorize", s.handleAuthorizeGet)
 	e.POST("/authorize", s.handleAuthorizePost)
-	e.GET("/authorize/callback", s.handleAuthorizeCallback)
 	e.POST("/token", s.handleToken)
 	e.GET("/userinfo", s.handleUserinfo)
+
+	// AT Protocol OAuth client callback (PDS redirects here after user auth)
+	e.GET("/oauth/callback", s.handleATProtoCallback)
+	// Client metadata endpoint (for non-localhost OAuth clients)
+	e.GET("/client-metadata.json", s.handleClientMetadata)
 
 	// Health
 	e.GET("/health", s.handleHealth)

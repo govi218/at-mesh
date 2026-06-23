@@ -117,14 +117,13 @@ func New(args *Args) (*Server, error) {
 
 	database := &db.DB{DB: gormDb}
 
-	// Init indigo OAuth client app (public client for localhost dev)
+	// Init indigo OAuth client app (public client)
 	// Wrap the store in a CapturingStore so we can retrieve the OAuth state
 	// that indigo generates inside StartAuthFlow.
-	callbackURL := fmt.Sprintf("http://127.0.0.1%s/oauth/callback", args.Addr)
-	if args.Addr == ":80" || args.Addr == "80" {
-		callbackURL = "http://127.0.0.1/oauth/callback"
-	}
-	oauthConfig := oauth.NewLocalhostConfig(callbackURL, []string{"atproto"})
+	// Use the hostname for the callback URL so it works from any device.
+	callbackURL := fmt.Sprintf("https://%s/oauth/callback", args.Hostname)
+	clientID := fmt.Sprintf("https://%s/oauth/client-metadata.json", args.Hostname)
+	oauthConfig := oauth.NewPublicConfig(clientID, callbackURL, []string{"atproto"})
 	capturingStore := db.NewCapturingStore(oauthStore)
 	oauthApp := oauth.NewClientApp(&oauthConfig, capturingStore)
 
@@ -154,7 +153,7 @@ func New(args *Args) (*Server, error) {
 
 	// Session store
 	cookieStore := sessions.NewCookieStore([]byte(args.SessionSecret))
-	cookieStore.Options.Secure = false
+	cookieStore.Options.Secure = true
 	cookieStore.Options.SameSite = http.SameSiteLaxMode
 	cookieStore.Options.HttpOnly = true
 	cookieStore.Options.Path = "/"
@@ -201,7 +200,7 @@ func (s *Server) setupEcho() {
 	// AT Protocol OAuth client callback (PDS redirects here after user auth)
 	e.GET("/oauth/callback", s.handleATProtoCallback)
 	// Client metadata endpoint (for non-localhost OAuth clients)
-	e.GET("/client-metadata.json", s.handleClientMetadata)
+	e.GET("/oauth/client-metadata.json", s.handleClientMetadata)
 
 	// Health
 	e.GET("/health", s.handleHealth)

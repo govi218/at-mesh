@@ -98,7 +98,7 @@ func (p *Provider) JWKS() (map[string]interface{}, error) {
 }
 
 // IssueIDToken creates a signed JWT id_token
-func (p *Provider) IssueIDToken(sub string, preferredUsername string, email string, audience string) (string, error) {
+func (p *Provider) IssueIDToken(sub string, preferredUsername string, email string, audience string, nonce string) (string, error) {
 	issuer := fmt.Sprintf("https://%s", p.hostname)
 
 	now := time.Now()
@@ -111,6 +111,7 @@ func (p *Provider) IssueIDToken(sub string, preferredUsername string, email stri
 		Claim("preferred_username", preferredUsername).
 		Claim("email", email).
 		Claim("name", preferredUsername).
+		Claim("nonce", nonce).
 		Build()
 	if err != nil {
 		return "", fmt.Errorf("error building token: %w", err)

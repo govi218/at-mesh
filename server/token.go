@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"net/http"
 	"strings"
 	"time"
@@ -67,7 +69,17 @@ func (s *Server) handleToken(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "redirect_uri mismatch"})
 	}
 
-	// TODO: PKCE validation
+	// PKCE validation
+	if authReq.CodeChallenge != "" {
+		if req.CodeVerifier == "" {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "code_verifier required"})
+		}
+		h := sha256.Sum256([]byte(req.CodeVerifier))
+		computedChallenge := base64.RawURLEncoding.EncodeToString(h[:])
+		if computedChallenge != authReq.CodeChallenge {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid_grant", "error_description": "PKCE verification failed"})
+		}
+	}
 
 	// Issue id_token
 	idToken, err := s.oidcProvider.IssueIDToken(
@@ -75,6 +87,7 @@ func (s *Server) handleToken(e echo.Context) error {
 		authReq.PreferredUsername,
 		authReq.Email,
 		authReq.ClientId,
+		authReq.Nonce,
 	)
 	if err != nil {
 		s.logger.Error("error issuing id_token", "err", err)

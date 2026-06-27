@@ -50,6 +50,20 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 	did := sessData.AccountDID.String()
 	s.logger.Info("AT Protocol OAuth successful", "did", did, "handle", bridge.Handle)
 
+	// Whitelist check: if the whitelist has any entries, only allow DIDs in the list.
+	// Empty whitelist = allow all (bootstrap mode).
+	var count int64
+	s.db.DB.Model(&db.WhitelistEntry{}).Count(&count)
+	if count > 0 {
+		var entry db.WhitelistEntry
+		if err := s.db.DB.Where("did = ?", did).First(&entry).Error; err != nil {
+			s.logger.Info("access denied — DID not in whitelist", "did", did)
+			return s.renderError(e, "Access Denied",
+				"Your AT Protocol identity is not authorized to join this mesh.")
+		}
+		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle)
+	}
+
 	// Issue an OIDC auth code for Headscale, using the real DID as sub
 	oidcCode := oidc.GenerateAuthCode()
 	authReq := &db.OidcAuthCode{

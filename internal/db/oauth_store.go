@@ -57,7 +57,7 @@ func NewOAuthStore(db *gorm.DB) *OAuthStore {
 }
 
 func (s *OAuthStore) AutoMigrate() error {
-	return s.db.AutoMigrate(&AtprotoSession{}, &AtprotoAuthState{}, &OidcBridge{})
+	return s.db.AutoMigrate(&AtprotoSession{}, &AtprotoAuthState{}, &OidcBridge{}, &WhitelistEntry{})
 }
 
 func (s *OAuthStore) GetSession(ctx context.Context, did syntax.DID, sessionID string) (*oauth.ClientSessionData, error) {

@@ -51,6 +51,11 @@ func main() {
 				Usage:   "Admin email for WebFinger (Tailscale SaaS compat)",
 			},
 			&cli.StringFlag{
+				Name:    "admin-token",
+				EnvVars: []string{"ATMESH_ADMIN_TOKEN"},
+				Usage:   "Admin token for the admin UI",
+			},
+			&cli.StringFlag{
 				Name:    "session-secret",
 				EnvVars: []string{"ATMESH_SESSION_SECRET"},
 				Value:   "change-me-in-production",
@@ -116,6 +121,7 @@ var runServe = &cli.Command{
 			HeadscaleUrl:  cmd.String("headscale-url"),
 			HeadscaleKey:  cmd.String("headscale-key"),
 			AdminEmail:    cmd.String("admin-email"),
+			AdminToken:    cmd.String("admin-token"),
 			SessionSecret: cmd.String("session-secret"),
 			Version:       Version,
 			LogLevel:      level,

@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"crypto/ecdsa"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -24,6 +26,9 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:embed web/*
+var webFS embed.FS
+
 type Args struct {
 	Addr          string
 	Hostname      string
@@ -32,6 +37,7 @@ type Args struct {
 	HeadscaleUrl  string
 	HeadscaleKey  string
 	AdminEmail    string
+	AdminToken    string
 	SessionSecret string
 	Version       string
 	LogLevel      string
@@ -66,6 +72,7 @@ type config struct {
 	HeadscaleUrl  string
 	HeadscaleKey  string
 	AdminEmail    string
+	AdminToken    string
 	Version       string
 	SessionSecret string
 	Clients       []OAuthClient
@@ -133,6 +140,7 @@ func New(args *Args) (*Server, error) {
 		HeadscaleUrl:  args.HeadscaleUrl,
 		HeadscaleKey:  args.HeadscaleKey,
 		AdminEmail:    args.AdminEmail,
+		AdminToken:    args.AdminToken,
 		Version:       args.Version,
 		SessionSecret: args.SessionSecret,
 		Clients:       args.Clients,
@@ -201,6 +209,26 @@ func (s *Server) setupEcho() {
 	e.GET("/oauth/callback", s.handleATProtoCallback)
 	// Client metadata endpoint (for non-localhost OAuth clients)
 	e.GET("/oauth/client-metadata.json", s.handleClientMetadata)
+
+	// Admin UI
+	e.GET("/admin/login", s.handleAdminLoginGet)
+	e.POST("/admin/login", s.handleAdminLoginPost)
+	e.POST("/admin/logout", s.handleAdminLogout)
+
+	// Whitelist API (admin-only)
+	whitelistGroup := e.Group("/api/v1/whitelist", s.adminMiddleware)
+	whitelistGroup.GET("", s.handleListWhitelist)
+	whitelistGroup.POST("", s.handleAddWhitelist)
+	whitelistGroup.DELETE("/:id", s.handleDeleteWhitelist)
+
+	// Headscale API proxy (admin-only, excludes /api/v1/whitelist)
+	if s.config.HeadscaleUrl != "" {
+		e.Any("/api/v1/*", s.newHeadscaleProxy(), s.adminMiddleware)
+	}
+
+	// Static files (headscale-ui build)
+	staticFS, _ := fs.Sub(webFS, "web")
+	e.GET("/web/*", echo.StaticDirectoryHandler(staticFS, false))
 
 	// Health
 	e.GET("/health", s.handleHealth)

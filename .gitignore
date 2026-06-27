@@ -20,5 +20,10 @@ keys/
 # OS
 .DS_Store
 
+# UI build
+web/*
+!web/.gitkeep
+ui/build/
+
 # AI
 .letta

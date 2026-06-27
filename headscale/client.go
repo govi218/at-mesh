@@ -68,3 +68,18 @@ func (c *Client) DeleteUser(userId string) error {
 func (c *Client) ListUsers() ([]byte, error) {
 	return c.doRequest("GET", "/api/v1/user", nil)
 }
+
+// ListNodes returns all nodes in Headscale
+func (c *Client) ListNodes() ([]byte, error) {
+	return c.doRequest("GET", "/api/v1/node", nil)
+}
+
+// GetPolicy returns the current ACL policy
+func (c *Client) GetPolicy() ([]byte, error) {
+	return c.doRequest("GET", "/api/v1/policy", nil)
+}
+
+// SetPolicy updates the ACL policy
+func (c *Client) SetPolicy(policy string) ([]byte, error) {
+	return c.doRequest("PUT", "/api/v1/policy", map[string]string{"policy": policy})
+}

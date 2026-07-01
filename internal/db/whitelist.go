@@ -6,7 +6,7 @@ import "time"
 // An empty whitelist means all DIDs are allowed (bootstrap mode).
 type WhitelistEntry struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	DID       string    `gorm:"uniqueIndex;not null" json:"did"`
+	DID       string    `gorm:"column:did;uniqueIndex;not null" json:"did"`
 	Handle    string    `json:"handle"`
 	MaxNodes  int       `gorm:"default:0" json:"max_nodes"` // 0 = unlimited
 	Notes     string    `json:"notes"`

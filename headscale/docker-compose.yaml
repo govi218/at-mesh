@@ -1,0 +1,46 @@
+---
+# Headscale + Caddy deployment for at-mesh
+# Config is volume-mounted from the at-mesh repo for unified version control.
+
+services:
+  headscale:
+    image: docker.io/headscale/headscale:v0.28.0
+    container_name: headscale
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/etc/headscale/config.yaml:ro
+      - headscale-data:/data
+    # extra_hosts lets the container resolve mesh.glados.computer
+    # (Docker DNS doesn't forward to public DNS properly)
+    extra_hosts:
+      - "mesh.glados.computer:host-gateway"
+    ports:
+      - "8080:8080"   # Headscale API
+      - "3478:3478/udp"  # STUN (DERP)
+    networks:
+      - headscale
+
+  caddy:
+    image: docker.io/caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - headscale
+    depends_on:
+      - headscale
+
+volumes:
+  headscale-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  headscale:
+    driver: bridge

@@ -21,9 +21,11 @@ keys/
 .DS_Store
 
 # UI build
-web/*
-!web/.gitkeep
+server/web/*
+!server/web/.gitkeep
 ui/build/
+ui/node_modules/
+ui/.svelte-kit/
 
 # AI
 .letta

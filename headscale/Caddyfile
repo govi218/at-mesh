@@ -1,0 +1,13 @@
+{
+	# Caddy reverse proxy for Headscale
+	# Cloudflare handles TLS for mesh.glados.computer (at-mesh)
+	# Caddy handles TLS for headscale.glados.computer
+}
+
+headscale.glados.computer {
+	reverse_proxy headscale:8080
+}
+
+ui.headscale.glados.computer {
+	reverse_proxy headscale:8080
+}

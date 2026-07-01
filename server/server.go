@@ -26,7 +26,7 @@ import (
 	"gorm.io/gorm"
 )
 
-//go:embed web/*
+//go:embed all:web
 var webFS embed.FS
 
 type Args struct {

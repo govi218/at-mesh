@@ -20,5 +20,12 @@ keys/
 # OS
 .DS_Store
 
+# UI build
+server/web/*
+!server/web/.gitkeep
+ui/build/
+ui/node_modules/
+ui/.svelte-kit/
+
 # AI
 .letta

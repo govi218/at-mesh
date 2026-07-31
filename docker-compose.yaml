@@ -9,14 +9,9 @@ services:
     volumes:
       - atmesh-data:/data
       - ./keys:/data/keys:ro
+      - ./clients.yaml:/data/clients.yaml:ro
     ports:
       - "127.0.0.1:9091:9091"
-    networks:
-      - headscale_default
 
 volumes:
   atmesh-data:
-
-networks:
-  headscale_default:
-    external: true

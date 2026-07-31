@@ -37,16 +37,6 @@ func main() {
 				EnvVars: []string{"ATMESH_DB_NAME"},
 			},
 			&cli.StringFlag{
-				Name:    "headscale-url",
-				EnvVars: []string{"ATMESH_HEADSCALE_URL"},
-				Usage:   "Headscale API URL (optional, for revocation)",
-			},
-			&cli.StringFlag{
-				Name:    "headscale-key",
-				EnvVars: []string{"ATMESH_HEADSCALE_KEY"},
-				Usage:   "Headscale API key (optional, for revocation)",
-			},
-			&cli.StringFlag{
 				Name:    "admin-email",
 				EnvVars: []string{"ATMESH_ADMIN_EMAIL"},
 				Usage:   "Admin email for WebFinger (Tailscale SaaS compat)",
@@ -64,12 +54,12 @@ func main() {
 			&cli.StringFlag{
 				Name:    "client-id",
 				EnvVars: []string{"ATMESH_CLIENT_ID"},
-				Usage:   "OAuth client ID (e.g. for Headscale)",
+				Usage:   "OAuth client ID (single-client env var fallback)",
 			},
 			&cli.StringFlag{
 				Name:    "client-secret",
 				EnvVars: []string{"ATMESH_CLIENT_SECRET"},
-				Usage:   "OAuth client secret (e.g. for Headscale)",
+				Usage:   "OAuth client secret (single-client env var fallback)",
 			},
 			&cli.StringFlag{
 				Name:    "client-redirect-uri",
@@ -124,8 +114,6 @@ var runServe = &cli.Command{
 			Hostname:      cmd.String("hostname"),
 			JwkPath:       cmd.String("jwk-path"),
 			DbName:        cmd.String("db-name"),
-			HeadscaleUrl:  cmd.String("headscale-url"),
-			HeadscaleKey:  cmd.String("headscale-key"),
 			AdminEmail:    cmd.String("admin-email"),
 			AdminToken:    cmd.String("admin-token"),
 			SessionSecret: cmd.String("session-secret"),

@@ -14,7 +14,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 	"github.com/go-playground/validator"
 	"github.com/gorilla/sessions"
-	"github.com/govi218/at-mesh/integrations/headscale"
 	"github.com/govi218/at-mesh/internal/db"
 	"github.com/govi218/at-mesh/oidc"
 	"github.com/labstack/echo-contrib/session"
@@ -34,8 +33,6 @@ type Args struct {
 	Hostname      string
 	JwkPath       string
 	DbName        string
-	HeadscaleUrl  string
-	HeadscaleKey  string
 	AdminEmail    string
 	AdminToken    string
 	SessionSecret string
@@ -54,7 +51,6 @@ type Server struct {
 	privateKey     *ecdsa.PrivateKey
 	jwkKey         jwk.Key
 	oidcProvider   *oidc.Provider
-	headscale      *headscale.Client
 	oauthApp       *oauth.ClientApp
 	sessionStore   sessions.Store
 	validator      *validator.Validate
@@ -69,8 +65,6 @@ type OAuthClient struct {
 type config struct {
 	Addr          string
 	Hostname      string
-	HeadscaleUrl  string
-	HeadscaleKey  string
 	AdminEmail    string
 	AdminToken    string
 	Version       string
@@ -84,6 +78,9 @@ func New(args *Args) (*Server, error) {
 	}
 	if args.JwkPath == "" {
 		return nil, fmt.Errorf("ATMESH_JWK_PATH is required")
+	}
+	if len(args.Clients) == 0 {
+		return nil, fmt.Errorf("at least one OAuth client must be configured")
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -137,8 +134,6 @@ func New(args *Args) (*Server, error) {
 	cfg := &config{
 		Addr:          args.Addr,
 		Hostname:      args.Hostname,
-		HeadscaleUrl:  args.HeadscaleUrl,
-		HeadscaleKey:  args.HeadscaleKey,
 		AdminEmail:    args.AdminEmail,
 		AdminToken:    args.AdminToken,
 		Version:       args.Version,
@@ -152,12 +147,6 @@ func New(args *Args) (*Server, error) {
 		PrivateKey: &privateKey,
 		JwkKey:     keySet,
 	})
-
-	// Init Headscale client
-	var hsClient *headscale.Client
-	if args.HeadscaleUrl != "" {
-		hsClient = headscale.NewClient(args.HeadscaleUrl, args.HeadscaleKey)
-	}
 
 	// Session store
 	cookieStore := sessions.NewCookieStore([]byte(args.SessionSecret))
@@ -175,7 +164,6 @@ func New(args *Args) (*Server, error) {
 		privateKey:     &privateKey,
 		jwkKey:         keySet,
 		oidcProvider:   oidcProvider,
-		headscale:      hsClient,
 		oauthApp:       oauthApp,
 		sessionStore:   cookieStore,
 		validator:      validator.New(),
@@ -222,12 +210,7 @@ func (s *Server) setupEcho() {
 	whitelistGroup.DELETE("/:id", s.handleDeleteWhitelist)
 	whitelistGroup.PUT("/:id", s.handleUpdateWhitelist)
 
-	// Headscale API proxy (admin-only, excludes /api/v1/whitelist)
-	if s.config.HeadscaleUrl != "" {
-		e.Any("/api/v1/*", s.newHeadscaleProxy(), s.adminMiddleware)
-	}
-
-	// Static files (headscale-ui build)
+	// Static files (admin UI build)
 	staticFS, _ := fs.Sub(webFS, "web")
 	e.GET("/web/*", echo.StaticDirectoryHandler(staticFS, false))
 

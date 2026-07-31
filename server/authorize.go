@@ -24,7 +24,7 @@ type AuthorizeGetInput struct {
 }
 
 // handleAuthorizeGet is step 1 of the OIDC flow.
-// Headscale redirects the user here. We validate the request,
+// The OIDC client redirects the user here. We validate the request,
 // then show the interstitial page asking for their AT Protocol handle.
 func (s *Server) handleAuthorizeGet(e echo.Context) error {
 	var input AuthorizeGetInput

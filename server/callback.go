@@ -13,7 +13,7 @@ import (
 // handleATProtoCallback is the OAuth callback endpoint that the PDS redirects
 // to after the user authenticates. It calls indigo's ProcessCallback to
 // exchange the auth code for an access token, gets the real DID, then
-// issues an OIDC code for Headscale.
+// issues an OIDC code for the client.
 func (s *Server) handleATProtoCallback(e echo.Context) error {
 	ctx := e.Request().Context()
 
@@ -89,7 +89,7 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 	// Clean up the bridge
 	s.oauthStore.DeleteOidcBridge(oauthState)
 
-	// Redirect to Headscale's callback with the OIDC code
+	// Redirect to the client's callback with the OIDC code
 	redirectURL := fmt.Sprintf("%s?code=%s", bridge.OidcRedirectUri, oidcCode)
 	if bridge.OidcState != "" {
 		redirectURL += fmt.Sprintf("&state=%s", bridge.OidcState)

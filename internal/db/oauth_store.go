@@ -29,7 +29,7 @@ type AtprotoAuthState struct {
 	CreatedAt time.Time
 }
 
-// OidcBridge links indigo's OAuth state to the Headscale OIDC params
+// OidcBridge links indigo's OAuth state to the OIDC client params
 // so we can complete the OIDC flow after the PDS callback.
 type OidcBridge struct {
 	ID                      uint   `gorm:"primaryKey"`

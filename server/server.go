@@ -220,6 +220,7 @@ func (s *Server) setupEcho() {
 	whitelistGroup.GET("", s.handleListWhitelist)
 	whitelistGroup.POST("", s.handleAddWhitelist)
 	whitelistGroup.DELETE("/:id", s.handleDeleteWhitelist)
+	whitelistGroup.PUT("/:id", s.handleUpdateWhitelist)
 
 	// Headscale API proxy (admin-only, excludes /api/v1/whitelist)
 	if s.config.HeadscaleUrl != "" {

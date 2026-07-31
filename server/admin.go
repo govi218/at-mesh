@@ -30,7 +30,7 @@ func (s *Server) adminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 // handleAdminLoginGet shows the admin login form.
 func (s *Server) handleAdminLoginGet(e echo.Context) error {
-	return e.HTML(http.StatusOK, adminLoginHTML)
+	return e.HTML(http.StatusOK, strings.ReplaceAll(adminLoginHTML, "__ERROR__", ""))
 }
 
 // handleAdminLoginPost validates the admin token and sets the session.
@@ -44,7 +44,7 @@ func (s *Server) handleAdminLoginPost(e echo.Context) error {
 	sess.Values["admin"] = true
 	sess.Save(e.Request(), e.Response())
 
-	return e.Redirect(http.StatusSeeOther, "/web/")
+	return e.Redirect(http.StatusSeeOther, "/web/devices.html")
 }
 
 // handleAdminLogout clears the admin session.
@@ -105,6 +105,47 @@ func (s *Server) handleDeleteWhitelist(e echo.Context) error {
 		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "database error"})
 	}
 	return e.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+// handleUpdateWhitelist updates an existing whitelist entry by ID.
+func (s *Server) handleUpdateWhitelist(e echo.Context) error {
+	id := e.Param("id")
+	if id == "" {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "id is required"})
+	}
+	idUint, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	var entry db.WhitelistEntry
+	if err := s.db.DB.First(&entry, idUint).Error; err != nil {
+		return e.JSON(http.StatusNotFound, map[string]string{"error": "entry not found"})
+	}
+
+	var input struct {
+		Handle   *string `json:"handle"`
+		MaxNodes *int    `json:"max_nodes"`
+		Notes    *string `json:"notes"`
+	}
+	if err := e.Bind(&input); err != nil {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
+	}
+
+	if input.Handle != nil {
+		entry.Handle = *input.Handle
+	}
+	if input.MaxNodes != nil {
+		entry.MaxNodes = *input.MaxNodes
+	}
+	if input.Notes != nil {
+		entry.Notes = *input.Notes
+	}
+
+	if err := s.db.DB.Save(&entry).Error; err != nil {
+		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "database error"})
+	}
+	return e.JSON(http.StatusOK, entry)
 }
 
 const adminLoginHTML = `<!DOCTYPE html>

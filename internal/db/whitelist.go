@@ -8,7 +8,7 @@ type WhitelistEntry struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	DID       string    `gorm:"column:did;uniqueIndex;not null" json:"did"`
 	Handle    string    `json:"handle"`
-	MaxNodes  int       `gorm:"default:0" json:"max_nodes"` // 0 = unlimited
+	Email     string    `json:"email"`
 	Notes     string    `json:"notes"`
 	CreatedAt time.Time `json:"created_at"`
 }

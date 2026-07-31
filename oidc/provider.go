@@ -65,6 +65,7 @@ func (p *Provider) Discovery() map[string]any {
 			"name",
 			"preferred_username",
 			"email",
+			"email_verified",
 		},
 		"code_challenge_methods_supported": []string{
 			"S256",
@@ -110,6 +111,7 @@ func (p *Provider) IssueIDToken(sub string, preferredUsername string, email stri
 		Expiration(now.Add(1 * time.Hour)).
 		Claim("preferred_username", preferredUsername).
 		Claim("email", email).
+		Claim("email_verified", true).
 		Claim("name", preferredUsername).
 		Claim("nonce", nonce).
 		Build()

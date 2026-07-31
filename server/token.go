@@ -128,9 +128,11 @@ func (s *Server) handleUserinfo(e echo.Context) error {
 		return e.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 	}
 
-	return e.JSON(http.StatusOK, map[string]string{
-		"sub":                authReq.Sub,
-		"name":               authReq.PreferredUsername,
+	return e.JSON(http.StatusOK, map[string]any{
+		"sub":             authReq.Sub,
+		"name":            authReq.PreferredUsername,
 		"preferred_username": authReq.PreferredUsername,
+		"email":           authReq.Email,
+		"email_verified":  true,
 	})
 }

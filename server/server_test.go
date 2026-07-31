@@ -866,7 +866,7 @@ func TestWhitelistAdd(t *testing.T) {
 	base := startTestServer(t, s)
 	client := adminClient(t, base)
 
-	body := bytes.NewBufferString(`{"did":"did:plc:test123","handle":"test.bsky.social","max_nodes":3,"notes":"test entry"}`)
+	body := bytes.NewBufferString(`{"did":"did:plc:test123","handle":"test.bsky.social","email":"test@mesh.glados.computer","notes":"test entry"}`)
 	req, _ := http.NewRequest("POST", base+"/api/v1/whitelist", body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -888,8 +888,8 @@ func TestWhitelistAdd(t *testing.T) {
 	if entry.Handle != "test.bsky.social" {
 		t.Errorf("handle = %v", entry.Handle)
 	}
-	if entry.MaxNodes != 3 {
-		t.Errorf("max_nodes = %v", entry.MaxNodes)
+	if entry.Email != "test@mesh.glados.computer" {
+		t.Errorf("email = %v", entry.Email)
 	}
 }
 
@@ -900,10 +900,10 @@ func TestWhitelistList(t *testing.T) {
 
 	// Add an entry first
 	s.db.DB.Create(&db.WhitelistEntry{
-		DID:      "did:plc:listtest",
-		Handle:   "list.bsky.social",
-		MaxNodes: 2,
-		Notes:    "list test",
+		DID:    "did:plc:listtest",
+		Handle: "list.bsky.social",
+		Email:  "list@mesh.glados.computer",
+		Notes:  "list test",
 	})
 
 	resp, err := client.Get(base + "/api/v1/whitelist")
@@ -932,9 +932,9 @@ func TestWhitelistDelete(t *testing.T) {
 	client := adminClient(t, base)
 
 	entry := db.WhitelistEntry{
-		DID:      "did:plc:deletetest",
-		Handle:   "delete.bsky.social",
-		MaxNodes: 1,
+		DID:    "did:plc:deletetest",
+		Handle: "delete.bsky.social",
+		Email:  "delete@mesh.glados.computer",
 	}
 	s.db.DB.Create(&entry)
 
@@ -964,14 +964,14 @@ func TestWhitelistUpdate(t *testing.T) {
 	client := adminClient(t, base)
 
 	entry := db.WhitelistEntry{
-		DID:      "did:plc:updatetest",
-		Handle:   "old.bsky.social",
-		MaxNodes: 1,
-		Notes:    "old notes",
+		DID:    "did:plc:updatetest",
+		Handle: "old.bsky.social",
+		Email:  "old@mesh.glados.computer",
+		Notes:  "old notes",
 	}
 	s.db.DB.Create(&entry)
 
-	body := bytes.NewBufferString(`{"handle":"new.bsky.social","max_nodes":5,"notes":"updated notes"}`)
+	body := bytes.NewBufferString(`{"handle":"new.bsky.social","email":"new@mesh.glados.computer","notes":"updated notes"}`)
 	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/whitelist/%d", base, entry.ID), body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -990,8 +990,8 @@ func TestWhitelistUpdate(t *testing.T) {
 	if updated.Handle != "new.bsky.social" {
 		t.Errorf("handle = %v, want new.bsky.social", updated.Handle)
 	}
-	if updated.MaxNodes != 5 {
-		t.Errorf("max_nodes = %v, want 5", updated.MaxNodes)
+	if updated.Email != "new@mesh.glados.computer" {
+		t.Errorf("email = %v, want new@mesh.glados.computer", updated.Email)
 	}
 	if updated.Notes != "updated notes" {
 		t.Errorf("notes = %v, want 'updated notes'", updated.Notes)

@@ -67,10 +67,10 @@ func (s *Server) handleListWhitelist(e echo.Context) error {
 // handleAddWhitelist adds a new whitelist entry.
 func (s *Server) handleAddWhitelist(e echo.Context) error {
 	var input struct {
-		DID      string `json:"did"`
-		Handle   string `json:"handle"`
-		MaxNodes int    `json:"max_nodes"`
-		Notes    string `json:"notes"`
+		DID    string `json:"did"`
+		Handle string `json:"handle"`
+		Email  string `json:"email"`
+		Notes  string `json:"notes"`
 	}
 	if err := e.Bind(&input); err != nil {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
@@ -80,10 +80,10 @@ func (s *Server) handleAddWhitelist(e echo.Context) error {
 	}
 
 	entry := db.WhitelistEntry{
-		DID:      input.DID,
-		Handle:   input.Handle,
-		MaxNodes: input.MaxNodes,
-		Notes:    input.Notes,
+		DID:    input.DID,
+		Handle: input.Handle,
+		Email:  input.Email,
+		Notes:  input.Notes,
 	}
 	if err := s.db.DB.Create(&entry).Error; err != nil {
 		return e.JSON(http.StatusConflict, map[string]string{"error": "DID already exists"})
@@ -124,9 +124,9 @@ func (s *Server) handleUpdateWhitelist(e echo.Context) error {
 	}
 
 	var input struct {
-		Handle   *string `json:"handle"`
-		MaxNodes *int    `json:"max_nodes"`
-		Notes    *string `json:"notes"`
+		Handle *string `json:"handle"`
+		Email  *string `json:"email"`
+		Notes  *string `json:"notes"`
 	}
 	if err := e.Bind(&input); err != nil {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
@@ -135,8 +135,8 @@ func (s *Server) handleUpdateWhitelist(e echo.Context) error {
 	if input.Handle != nil {
 		entry.Handle = *input.Handle
 	}
-	if input.MaxNodes != nil {
-		entry.MaxNodes = *input.MaxNodes
+	if input.Email != nil {
+		entry.Email = *input.Email
 	}
 	if input.Notes != nil {
 		entry.Notes = *input.Notes

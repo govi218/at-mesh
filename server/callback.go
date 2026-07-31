@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -53,54 +52,19 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 
 	// Whitelist check: if the whitelist has any entries, only allow DIDs in the list.
 	// Empty whitelist = allow all (bootstrap mode).
+	var entry db.WhitelistEntry
 	var count int64
 	s.db.DB.Model(&db.WhitelistEntry{}).Count(&count)
 	if count > 0 {
-		var entry db.WhitelistEntry
 		if err := s.db.DB.Where("did = ?", did).First(&entry).Error; err != nil {
 			s.logger.Info("access denied — DID not in whitelist", "did", did)
 			return s.renderError(e, "Access Denied",
 				"Your AT Protocol identity is not authorized to join this mesh.")
 		}
-		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle, "maxnodes", entry.MaxNodes)
-
-		// Device limit enforcement: if MaxNodes > 0, check how many nodes
-		// the user already has registered in Headscale.
-		if entry.MaxNodes > 0 && s.headscale != nil {
-			nodesData, err := s.headscale.ListNodes()
-			if err != nil {
-				s.logger.Error("failed to list nodes for device limit check", "err", err)
-				return s.renderError(e, "Server Error", "Could not verify device limit.")
-			}
-
-			var nodesResp struct {
-				Nodes []struct {
-					User struct {
-						Name string `json:"name"`
-					} `json:"user"`
-				} `json:"nodes"`
-			}
-			if err := json.Unmarshal(nodesData, &nodesResp); err != nil {
-				s.logger.Error("failed to parse nodes response", "err", err)
-				return s.renderError(e, "Server Error", "Could not verify device limit.")
-			}
-
-			count := 0
-			for _, node := range nodesResp.Nodes {
-				if node.User.Name == did {
-					count++
-				}
-			}
-
-			if count >= entry.MaxNodes {
-				s.logger.Info("device limit reached", "did", did, "current", count, "max", entry.MaxNodes)
-				return s.renderError(e, "Device Limit Reached",
-					fmt.Sprintf("You have reached the maximum number of devices (%d) for your account.", entry.MaxNodes))
-			}
-		}
+		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle, "email", entry.Email)
 	}
 
-	// Issue an OIDC auth code for Headscale, using the real DID as sub
+	// Issue an OIDC auth code, using the real DID as sub
 	oidcCode := oidc.GenerateAuthCode()
 	authReq := &db.OidcAuthCode{
 		Code:                oidcCode,
@@ -113,7 +77,7 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 		CodeChallengeMethod: bridge.OidcCodeChallengeMethod,
 		Sub:                 did,
 		PreferredUsername:   bridge.Handle,
-		Email:               "",
+		Email:               entry.Email,
 		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	}
 

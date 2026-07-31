@@ -1,0 +1,9 @@
+clients:
+  - id: headscale
+    secret: your-headscale-secret
+    redirect_uris:
+      - http://localhost:9999/callback
+  - id: tailscale
+    secret: ""
+    redirect_uris:
+      - https://login.tailscale.com/a/oauth_response

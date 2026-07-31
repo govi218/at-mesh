@@ -8,6 +8,7 @@ import (
 	"github.com/govi218/at-mesh/server"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/urfave/cli/v2"
+	"gopkg.in/yaml.v3"
 )
 
 var Version = "dev"
@@ -74,6 +75,11 @@ func main() {
 				Name:    "client-redirect-uri",
 				EnvVars: []string{"ATMESH_CLIENT_REDIRECT_URI"},
 				Usage:   "OAuth client redirect URI",
+			},
+			&cli.StringFlag{
+				Name:    "clients",
+				EnvVars: []string{"ATMESH_CLIENTS_FILE"},
+				Usage:   "Path to clients YAML file for multi-client config",
 			},
 		},
 		Commands: []*cli.Command{
@@ -155,6 +161,25 @@ var runCreateJwk = &cli.Command{
 }
 
 func buildClients(cmd *cli.Context) []server.OAuthClient {
+	// If a clients YAML file is specified, load from it
+	if clientsFile := cmd.String("clients"); clientsFile != "" {
+		data, err := os.ReadFile(clientsFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error reading clients file: %v\n", err)
+			os.Exit(1)
+		}
+
+		var cfg struct {
+			Clients []server.OAuthClient `yaml:"clients"`
+		}
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing clients file: %v\n", err)
+			os.Exit(1)
+		}
+		return cfg.Clients
+	}
+
+	// Fallback: single client from env vars
 	clientID := cmd.String("client-id")
 	if clientID == "" {
 		return nil

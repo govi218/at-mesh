@@ -34,9 +34,9 @@ func NewProvider(args *ProviderArgs) *Provider {
 }
 
 // Discovery returns the OIDC discovery document
-func (p *Provider) Discovery() map[string]interface{} {
+func (p *Provider) Discovery() map[string]any {
 	issuer := fmt.Sprintf("https://%s", p.hostname)
-	return map[string]interface{}{
+	return map[string]any{
 		"issuer":                 issuer,
 		"authorization_endpoint": issuer + "/authorize",
 		"token_endpoint":         issuer + "/token",
@@ -73,7 +73,7 @@ func (p *Provider) Discovery() map[string]interface{} {
 }
 
 // JWKS returns the JSON Web Key Set
-func (p *Provider) JWKS() (map[string]interface{}, error) {
+func (p *Provider) JWKS() (map[string]any, error) {
 	pubKey, err := jwk.PublicKeyOf(p.jwkKey)
 	if err != nil {
 		return nil, fmt.Errorf("error getting public key: %w", err)
@@ -89,7 +89,7 @@ func (p *Provider) JWKS() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("error marshaling key set: %w", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("error unmarshaling key set: %w", err)
 	}

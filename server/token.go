@@ -98,7 +98,7 @@ func (s *Server) handleToken(e echo.Context) error {
 	// so /userinfo can look up the claims by access token.
 	accessToken := oidc.GenerateAuthCode()
 	// Clear the code (one-time use) but keep the row for userinfo lookups.
-	if err := s.db.DB.Model(&authReq).Updates(map[string]interface{}{
+	if err := s.db.DB.Model(&authReq).Updates(map[string]any{
 		"access_token": accessToken,
 		"code":         "",
 	}).Error; err != nil {

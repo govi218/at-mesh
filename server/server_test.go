@@ -108,7 +108,7 @@ func TestDiscovery(t *testing.T) {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
 
-	var doc map[string]interface{}
+	var doc map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
@@ -356,7 +356,7 @@ func TestTokenExchange(t *testing.T) {
 		t.Fatalf("status %d: %s", tokenResp.StatusCode, body)
 	}
 
-	var token map[string]interface{}
+	var token map[string]any
 	json.NewDecoder(tokenResp.Body).Decode(&token)
 
 	if _, ok := token["id_token"]; !ok {
@@ -563,7 +563,7 @@ func TestPKCEFlow(t *testing.T) {
 		t.Fatalf("valid PKCE: status %d: %s", tokenResp.StatusCode, body)
 	}
 
-	var token map[string]interface{}
+	var token map[string]any
 	json.NewDecoder(tokenResp.Body).Decode(&token)
 	if _, ok := token["id_token"]; !ok {
 		t.Error("no id_token in response")

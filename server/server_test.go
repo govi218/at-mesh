@@ -613,16 +613,29 @@ func TestWebFingerNonAdminEmail(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	// Current behavior: non-admin email returns 404
-	// After the fix, this should return 200
 	resp, err := http.Get(base + "/.well-known/webfinger?resource=acct:hello@mesh.glados.computer")
 	if err != nil {
 		t.Fatalf("get webfinger: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 404 {
-		t.Errorf("status = %d, want 404 (current behavior — will change to 200 after fix)", resp.StatusCode)
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var wf struct {
+		Subject string `json:"subject"`
+		Links   []struct {
+			Rel  string `json:"rel"`
+			Href string `json:"href"`
+		} `json:"links"`
+	}
+	json.NewDecoder(resp.Body).Decode(&wf)
+	if wf.Subject != "acct:hello@mesh.glados.computer" {
+		t.Errorf("subject = %v", wf.Subject)
+	}
+	if len(wf.Links) != 1 || wf.Links[0].Href != "https://mesh.glados.computer" {
+		t.Errorf("links = %v", wf.Links)
 	}
 }
 

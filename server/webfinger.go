@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -23,9 +24,19 @@ func (s *Server) handleWebFinger(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "missing resource parameter"})
 	}
 
-	// Expected: acct:admin@mesh.glados.computer
-	expectedResource := fmt.Sprintf("acct:%s", s.config.AdminEmail)
-	if resource != expectedResource {
+	// Expected: acct:<anything>@<hostname>
+	if !strings.HasPrefix(resource, "acct:") {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "resource must be an acct: URI"})
+	}
+
+	addr := strings.TrimPrefix(resource, "acct:")
+	at := strings.LastIndex(addr, "@")
+	if at == -1 {
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid acct: URI"})
+	}
+
+	domain := addr[at+1:]
+	if domain != s.config.Hostname {
 		return e.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
 

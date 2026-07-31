@@ -41,7 +41,7 @@ policy:
 # OIDC — at-mesh is the identity provider
 oidc:
   only_start_if_oidc_is_available: true
-  issuer: "https://mesh.glados.computer"
+  issuer: "https://at-mesh.glados.computer"
   client_id: "headscale"
   client_secret: "secret123"
 

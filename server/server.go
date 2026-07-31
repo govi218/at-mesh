@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/auth/oauth"
 	"github.com/go-playground/validator"
 	"github.com/gorilla/sessions"
-	"github.com/govi218/at-mesh/headscale"
+	"github.com/govi218/at-mesh/integrations/headscale"
 	"github.com/govi218/at-mesh/internal/db"
 	"github.com/govi218/at-mesh/oidc"
 	"github.com/labstack/echo-contrib/session"

@@ -19,6 +19,7 @@ import (
 	"github.com/govi218/at-mesh/internal/db"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func setupTestServer(t *testing.T) *Server {
@@ -30,7 +31,9 @@ func setupTestServer(t *testing.T) *Server {
 		t.Fatalf("create jwk: %v", err)
 	}
 
-	gormDb, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	gormDb, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -664,14 +667,14 @@ func TestTokenExpiredCode(t *testing.T) {
 
 	// Insert an auth code with past expiry directly into the DB
 	authReq := &db.OidcAuthCode{
-		Code:                "expired-code-test",
-		ClientId:            "headscale",
-		RedirectUri:         "http://localhost:9999/callback",
-		Scope:               "openid",
-		Sub:                "did:plc:placeholder",
-		PreferredUsername:   "placeholder",
-		Email:              "admin@mesh.glados.computer",
-		ExpiresAt:          time.Now().Add(-1 * time.Minute),
+		Code:              "expired-code-test",
+		ClientId:          "headscale",
+		RedirectUri:       "http://localhost:9999/callback",
+		Scope:             "openid",
+		Sub:               "did:plc:placeholder",
+		PreferredUsername: "placeholder",
+		Email:             "admin@mesh.glados.computer",
+		ExpiresAt:         time.Now().Add(-1 * time.Minute),
 	}
 	if err := s.db.DB.Create(authReq).Error; err != nil {
 		t.Fatalf("create auth code: %v", err)

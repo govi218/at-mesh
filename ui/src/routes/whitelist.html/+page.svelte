@@ -1,19 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { getWhitelist, addWhitelistEntry, deleteWhitelistEntry, type WhitelistEntry } from '$lib/whitelist/apiFunctions.svelte';
+	import { getWhitelist, addWhitelistEntry, updateWhitelistEntry, deleteWhitelistEntry, type WhitelistEntry } from '$lib/whitelist/apiFunctions.svelte';
 	import { alertStore } from '$lib/common/stores.js';
 
 	let componentLoaded = false;
 	let entries: WhitelistEntry[] = [];
 	let error = '';
 	let showAddForm = false;
+	let editingId: number | null = null;
 
 	// form fields
 	let newDID = '';
 	let newHandle = '';
 	let newMaxNodes = 0;
 	let newNotes = '';
+
+	// edit fields
+	let editHandle = '';
+	let editMaxNodes = 0;
+	let editNotes = '';
 
 	async function loadWhitelist() {
 		try {
@@ -35,6 +41,32 @@
 			showAddForm = false;
 			await loadWhitelist();
 			$alertStore = 'Added whitelist entry';
+		} catch (e) {
+			$alertStore = 'Error: ' + String(e);
+		}
+	}
+
+	function startEdit(entry: WhitelistEntry) {
+		editingId = entry.id;
+		editHandle = entry.handle || '';
+		editMaxNodes = entry.max_nodes || 0;
+		editNotes = entry.notes || '';
+	}
+
+	function cancelEdit() {
+		editingId = null;
+	}
+
+	async function handleSave(id: number) {
+		try {
+			await updateWhitelistEntry(id, {
+				handle: editHandle,
+				max_nodes: editMaxNodes,
+				notes: editNotes
+			});
+			editingId = null;
+			await loadWhitelist();
+			$alertStore = 'Updated whitelist entry';
 		} catch (e) {
 			$alertStore = 'Error: ' + String(e);
 		}
@@ -119,17 +151,29 @@
 						{#each entries as entry}
 							<tr>
 								<td class="font-mono text-xs">{entry.did}</td>
-								<td>{entry.handle || '-'}</td>
-								<td>{entry.max_nodes || '∞'}</td>
-								<td>{entry.notes || '-'}</td>
-								<td class="text-xs">{new Date(entry.created_at).toLocaleDateString()}</td>
-								<td>
-									<button
-										on:click={() => handleDelete(entry.id)}
-										class="btn btn-error btn-xs capitalize"
-										type="button"
-									>Remove</button>
-								</td>
+								{#if editingId === entry.id}
+									<td><input bind:value={editHandle} class="form-input input-sm" placeholder="handle" /></td>
+									<td><input type="number" bind:value={editMaxNodes} class="form-input input-sm" placeholder="0 = unlimited" /></td>
+									<td><input bind:value={editNotes} class="form-input input-sm" placeholder="notes" /></td>
+									<td class="text-xs">{new Date(entry.created_at).toLocaleDateString()}</td>
+									<td>
+										<div class="flex gap-1">
+											<button on:click={() => handleSave(entry.id)} class="btn btn-primary btn-xs capitalize" type="button">Save</button>
+											<button on:click={cancelEdit} class="btn btn-secondary btn-xs capitalize" type="button">Cancel</button>
+										</div>
+									</td>
+								{:else}
+									<td>{entry.handle || '-'}</td>
+									<td>{entry.max_nodes || '∞'}</td>
+									<td>{entry.notes || '-'}</td>
+									<td class="text-xs">{new Date(entry.created_at).toLocaleDateString()}</td>
+									<td>
+										<div class="flex gap-1">
+											<button on:click={() => startEdit(entry)} class="btn btn-secondary btn-xs capitalize" type="button">Edit</button>
+											<button on:click={() => handleDelete(entry.id)} class="btn btn-error btn-xs capitalize" type="button">Remove</button>
+										</div>
+									</td>
+								{/if}
 							</tr>
 						{/each}
 					</tbody>

@@ -14,32 +14,29 @@
 
 		//returning variables
 		let headscaleUsers = [new User()];
-		let headscaleUsersResponse: Response = new Response();
+		let headscaleUsersResponse: Response | null = null;
 
 		await fetch(headscaleURL + endpointURL, {
 			method: 'GET',
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					// return the api data
-					headscaleUsersResponse = response;
-				} else {
-					return response.text().then((text) => {
-						apiTestStore.set('failed');
-						throw text;
-					});
-				}
-			})
-			.catch((error) => {
+		.then((response) => {
+			if (response.ok) {
+				// return the api data
+				headscaleUsersResponse = response;
+			} else {
 				apiTestStore.set('failed');
-				throw error;
-			});
+			}
+		})
+		.catch(() => {
+			apiTestStore.set('failed');
+		});
 
+		if (headscaleUsersResponse?.ok) {
 		await headscaleUsersResponse.json().then((data) => {
 			headscaleUsers = data.users;
 			// sort the users
@@ -50,6 +47,7 @@
 		userStore.set(headscaleUsers);
 		// Filter the store
 		filterUsers();
+		}
 	}
 
 	export async function editUser(currentUserId: string, newUsername: string): Promise<any> {
@@ -65,21 +63,21 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function newAPIKey(APIKeyExpiration: string): Promise<string> {
@@ -98,24 +96,24 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				expiration: APIKeyExpiration
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-					APIKeyResponse = response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				APIKeyResponse = response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 		await APIKeyResponse.json().then((data) => {
 			APIKeyString = data.apiKey;
 		});
@@ -136,23 +134,23 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				prefix: APIKeyPrefix
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function updateTags(deviceID: string, tags: string[]): Promise<any> {
@@ -169,24 +167,24 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				tags: tags
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function removeUser(currentUserId: string): Promise<any> {
@@ -202,21 +200,21 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function newUser(newUsername: string): Promise<any> {
@@ -232,24 +230,24 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				name: newUsername.toLowerCase()
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function getDevices(): Promise<any> {
@@ -263,7 +261,7 @@
 
 		//returning variables
 		let headscaleDevices = [new Device()];
-		let headscaleDeviceResponse: Response = new Response();
+		let headscaleDeviceResponse: Response | null = null;
 
 		// attempt to get the user data
 		await fetch(headscaleURL + endpointURL, {
@@ -271,25 +269,22 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					// return the api data
-					headscaleDeviceResponse = response;
-				} else {
-					return response.text().then((text) => {
-						apiTestStore.set('failed');
-						throw text;
-					});
-				}
-			})
-			.catch((error) => {
+		.then((response) => {
+			if (response.ok) {
+				// return the api data
+				headscaleDeviceResponse = response;
+			} else {
 				apiTestStore.set('failed');
-				throw error;
-			});
+			}
+		})
+		.catch(() => {
+			apiTestStore.set('failed');
+		});
 
+		if (headscaleDeviceResponse?.ok) {
 		await headscaleDeviceResponse.json().then((data) => {
 			headscaleDevices = data[`nodes`];
 			headscaleDevices = sortDevices(headscaleDevices);
@@ -299,6 +294,7 @@
 		deviceStore.set(headscaleDevices);
 		// filter the store
 		filterDevices();
+		}
 	}
 
 	export async function getAPIKeys(): Promise<APIKey[]> {
@@ -308,6 +304,7 @@
 
 		// endpoint url for editing users
 		let endpointURL = '/api/v1/apikey';
+
 		let apiKeysResponse = new Response();
 		let apiKeys = [new APIKey()];
 
@@ -316,25 +313,26 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					apiKeysResponse = response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				apiKeysResponse = response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 
 		await apiKeysResponse.json().then((data) => {
 			apiKeys = data.apiKeys;
 		});
+
 		return apiKeys;
 	}
 
@@ -348,32 +346,33 @@
 
 		//returning variables
 		let headscalePreAuthKey = [new PreAuthKey()];
-		let headscalePreAuthKeyResponse: Response = new Response();
+		let headscalePreAuthKeyResponse = new Response();
 
 		await fetch(headscaleURL + endpointURL + '?user=' + userID, {
 			method: 'GET',
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					headscalePreAuthKeyResponse = response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				headscalePreAuthKeyResponse = response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 
 		await headscalePreAuthKeyResponse.json().then((data) => {
 			headscalePreAuthKey = data.preAuthKeys;
 		});
+
 		return headscalePreAuthKey;
 	}
 
@@ -381,6 +380,7 @@
 		// variables in local storage
 		let headscaleURL = localStorage.getItem('headscaleURL') || '';
 		let headscaleAPIKey = localStorage.getItem('headscaleAPIKey') || '';
+
 		// endpoint url for editing users
 		let endpointURL = '/api/v1/preauthkey';
 
@@ -389,7 +389,7 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				user: userID,
@@ -398,18 +398,18 @@
 				ephemeral: ephemeral
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function removePreAuthKey(userID: string, preAuthKey: string): Promise<any> {
@@ -425,25 +425,25 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				user: userID,
 				key: preAuthKey
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function newDevice(key: string, userId: string): Promise<any> {
@@ -460,21 +460,21 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function moveDevice(deviceID: string, userID: string): Promise<any> {
@@ -491,24 +491,24 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			},
 			body: JSON.stringify({
 				user: parseInt(userID)
 			})
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function renameDevice(deviceID: string, name: string): Promise<any> {
@@ -525,25 +525,25 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 
 	export async function removeDevice(deviceID: string): Promise<any> {
-		
+
 		// variables in local storage
 		let headscaleURL = localStorage.getItem('headscaleURL') || '';
 		let headscaleAPIKey = localStorage.getItem('headscaleAPIKey') || '';
@@ -556,20 +556,20 @@
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${headscaleAPIKey}`,
-			credentials: 'same-origin'
+				credentials: 'same-origin'
 			}
 		})
-			.then((response) => {
-				if (response.ok) {
-					return response;
-				} else {
-					return response.text().then((text) => {
-						throw JSON.parse(text).message;
-					});
-				}
-			})
-			.catch((error) => {
-				throw error;
-			});
+		.then((response) => {
+			if (response.ok) {
+				return response;
+			} else {
+				return response.text().then((text) => {
+					throw JSON.parse(text).message;
+				});
+			}
+		})
+		.catch((error) => {
+			throw error;
+		});
 	}
 </script>

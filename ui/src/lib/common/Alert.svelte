@@ -2,7 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { alertStore } from '$lib/common/stores.js';
-	export let ms = 3000;
+	export let ms = 0;
 	let visible = false;
 	let timeout: number;
 
@@ -33,11 +33,16 @@
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<div
 		transition:slide|global
-		class="absolute alert text-lg left-1/2 transform -translate-x-1/2 justify-center shadow-lg max-w-lg"
-		on:keypress on:click={() => {
-			$alertStore = '';
-		}}
+		class="absolute alert text-lg left-1/2 transform -translate-x-1/2 justify-center shadow-lg max-w-lg flex items-center gap-2 pr-3"
 	>
-		<p>{$alertStore}</p>
+		<p class="flex-1">{$alertStore}</p>
+		<button
+			type="button"
+			class="btn btn-sm btn-circle btn-ghost"
+			on:click={() => { $alertStore = ''; }}
+			aria-label="Dismiss"
+		>
+			✕
+		</button>
 	</div>
 {/if}

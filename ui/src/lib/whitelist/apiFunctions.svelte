@@ -50,6 +50,27 @@
 		return await response.json();
 	}
 
+	export async function updateWhitelistEntry(
+		id: number,
+		updates: { handle?: string; max_nodes?: number; notes?: string }
+	): Promise<WhitelistEntry> {
+		const response = await fetch(`/api/v1/whitelist/${id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+			credentials: 'same-origin',
+			body: JSON.stringify(updates)
+		});
+		if (!response.ok) {
+			const text = await response.text();
+			try {
+				throw JSON.parse(text).error;
+			} catch {
+				throw text;
+			}
+		}
+		return await response.json();
+	}
+
 	export async function deleteWhitelistEntry(id: number): Promise<void> {
 		const response = await fetch(`/api/v1/whitelist/${id}`, {
 			method: 'DELETE',

@@ -23,9 +23,7 @@ keys/
 # UI build
 server/web/*
 !server/web/.gitkeep
-ui/build/
-ui/node_modules/
-ui/.svelte-kit/
+!server/web/whitelist.html
 
 # AI
 .letta

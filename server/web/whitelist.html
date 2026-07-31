@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>at-mesh Admin</title>
+	<style>
+		:root { color-scheme: dark; }
+		body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; margin: 0; padding: 2rem; }
+		h1 { font-size: 1.5rem; }
+		table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+		th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #333; }
+		th { color: #aaa; font-weight: normal; font-size: 0.875rem; }
+		input, textarea { width: 100%; padding: 0.5rem; border: 1px solid #333; border-radius: 4px; background: #0f3460; color: #eee; font-size: 0.875rem; box-sizing: border-box; }
+		input:focus, textarea:focus { outline: none; border-color: #e94560; }
+		button { padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #e94560; color: #fff; cursor: pointer; font-size: 0.875rem; }
+		button:hover { background: #c73e54; }
+		.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+		.btn-danger { background: #444; }
+		.btn-danger:hover { background: #c73e54; }
+		.form-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: flex-end; }
+		.form-row > div { flex: 1; }
+		.form-row label { display: block; font-size: 0.75rem; color: #aaa; margin-bottom: 0.25rem; }
+		.actions { display: flex; gap: 0.25rem; }
+		.edit-row { background: #16213e; }
+		.logout { position: absolute; top: 2rem; right: 2rem; }
+	</style>
+</head>
+<body>
+	<h1>at-mesh Whitelist</h1>
+	<button class="logout btn-danger btn-sm" onclick="logout()">Logout</button>
+
+	<div class="form-row">
+		<div>
+			<label>DID</label>
+			<input id="new-did" placeholder="did:plc:...">
+		</div>
+		<div>
+			<label>Handle</label>
+			<input id="new-handle" placeholder="user.bsky.social">
+		</div>
+		<div>
+			<label>Email</label>
+			<input id="new-email" placeholder="user@example.com">
+		</div>
+		<div>
+			<label>Notes</label>
+			<input id="new-notes" placeholder="">
+		</div>
+		<div>
+			<button onclick="addEntry()">Add</button>
+		</div>
+	</div>
+
+	<table>
+		<thead>
+			<tr><th>DID</th><th>Handle</th><th>Email</th><th>Notes</th><th></th></tr>
+		</thead>
+		<tbody id="entries"></tbody>
+	</table>
+
+	<script>
+		const api = '/api/v1/whitelist';
+		let editingId = null;
+
+		async function load() {
+			const resp = await fetch(api);
+			if (resp.status === 401) {
+				window.location.href = '/admin/login';
+				return;
+			}
+			const entries = await resp.json();
+			const tbody = document.getElementById('entries');
+			tbody.innerHTML = '';
+			for (const e of entries) {
+				if (editingId === e.id) {
+					tbody.innerHTML += renderEditRow(e);
+				} else {
+					tbody.innerHTML += renderRow(e);
+				}
+			}
+		}
+
+		function renderRow(e) {
+			return `<tr>
+				<td>${esc(e.did)}</td>
+				<td>${esc(e.handle)}</td>
+				<td>${esc(e.email)}</td>
+				<td>${esc(e.notes)}</td>
+				<td class="actions">
+					<button class="btn-sm" onclick="startEdit(${e.id})">Edit</button>
+					<button class="btn-sm btn-danger" onclick="del(${e.id})">Delete</button>
+				</td>
+			</tr>`;
+		}
+
+		function renderEditRow(e) {
+			return `<tr class="edit-row">
+				<td>${esc(e.did)}</td>
+				<td><input id="edit-handle-${e.id}" value="${esc(e.handle)}"></td>
+				<td><input id="edit-email-${e.id}" value="${esc(e.email)}"></td>
+				<td><input id="edit-notes-${e.id}" value="${esc(e.notes)}"></td>
+				<td class="actions">
+					<button class="btn-sm" onclick="saveEdit(${e.id})">Save</button>
+					<button class="btn-sm btn-danger" onclick="cancelEdit()">Cancel</button>
+				</td>
+			</tr>`;
+		}
+
+		function esc(s) { return s ? s.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+		async function addEntry() {
+			const did = document.getElementById('new-did').value.trim();
+			if (!did) return alert('DID is required');
+			const resp = await fetch(api, {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({
+					did,
+					handle: document.getElementById('new-handle').value.trim(),
+					email: document.getElementById('new-email').value.trim(),
+					notes: document.getElementById('new-notes').value.trim(),
+				})
+			});
+			if (resp.status === 201) {
+				document.getElementById('new-did').value = '';
+				document.getElementById('new-handle').value = '';
+				document.getElementById('new-email').value = '';
+				document.getElementById('new-notes').value = '';
+				load();
+			} else if (resp.status === 409) {
+				alert('DID already exists');
+			} else {
+				alert('Error: ' + resp.status);
+			}
+		}
+
+		function startEdit(id) { editingId = id; load(); }
+		function cancelEdit() { editingId = null; load(); }
+
+		async function saveEdit(id) {
+			const resp = await fetch(`${api}/${id}`, {
+				method: 'PUT',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({
+					handle: document.getElementById(`edit-handle-${id}`).value.trim(),
+					email: document.getElementById(`edit-email-${id}`).value.trim(),
+					notes: document.getElementById(`edit-notes-${id}`).value.trim(),
+				})
+			});
+			if (resp.ok) { editingId = null; load(); }
+			else { alert('Error: ' + resp.status); }
+		}
+
+		async function del(id) {
+			if (!confirm('Delete this entry?')) return;
+			const resp = await fetch(`${api}/${id}`, {method: 'DELETE'});
+			if (resp.ok) load();
+			else alert('Error: ' + resp.status);
+		}
+
+		async function logout() {
+			await fetch('/admin/logout', {method: 'POST'});
+			window.location.href = '/admin/login';
+		}
+
+		load();
+	</script>
+</body>
+</html>

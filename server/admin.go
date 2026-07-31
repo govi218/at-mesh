@@ -44,7 +44,7 @@ func (s *Server) handleAdminLoginPost(e echo.Context) error {
 	sess.Values["admin"] = true
 	sess.Save(e.Request(), e.Response())
 
-	return e.Redirect(http.StatusSeeOther, "/web/devices.html")
+	return e.Redirect(http.StatusSeeOther, "/web/whitelist.html")
 }
 
 // handleAdminLogout clears the admin session.

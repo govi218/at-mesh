@@ -42,5 +42,6 @@ func CreateJwk(outPath string) error {
 		return fmt.Errorf("error writing JWK file: %w", err)
 	}
 
+	fmt.Printf("JWK written to %s (kid: %s)\n", outPath, kid)
 	return nil
 }

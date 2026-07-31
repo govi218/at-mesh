@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-bookworm AS builder
+FROM golang:1.26-bookworm AS builder
 
 WORKDIR /build
 
@@ -15,7 +15,7 @@ RUN CGO_ENABLED=1 go build -ldflags "-X main.Version=${VERSION}" -o /at-mesh ./c
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends dumb-init && \
+    apt-get install -y --no-install-recommends dumb-init ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r atmesh && useradd -r -g atmesh -d /home/atmesh -s /sbin/nologin atmesh

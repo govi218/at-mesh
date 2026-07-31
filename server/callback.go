@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -61,7 +62,42 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 			return s.renderError(e, "Access Denied",
 				"Your AT Protocol identity is not authorized to join this mesh.")
 		}
-		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle)
+		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle, "maxnodes", entry.MaxNodes)
+
+		// Device limit enforcement: if MaxNodes > 0, check how many nodes
+		// the user already has registered in Headscale.
+		if entry.MaxNodes > 0 && s.headscale != nil {
+			nodesData, err := s.headscale.ListNodes()
+			if err != nil {
+				s.logger.Error("failed to list nodes for device limit check", "err", err)
+				return s.renderError(e, "Server Error", "Could not verify device limit.")
+			}
+
+			var nodesResp struct {
+				Nodes []struct {
+					User struct {
+						Name string `json:"name"`
+					} `json:"user"`
+				} `json:"nodes"`
+			}
+			if err := json.Unmarshal(nodesData, &nodesResp); err != nil {
+				s.logger.Error("failed to parse nodes response", "err", err)
+				return s.renderError(e, "Server Error", "Could not verify device limit.")
+			}
+
+			count := 0
+			for _, node := range nodesResp.Nodes {
+				if node.User.Name == did {
+					count++
+				}
+			}
+
+			if count >= entry.MaxNodes {
+				s.logger.Info("device limit reached", "did", did, "current", count, "max", entry.MaxNodes)
+				return s.renderError(e, "Device Limit Reached",
+					fmt.Sprintf("You have reached the maximum number of devices (%d) for your account.", entry.MaxNodes))
+			}
+		}
 	}
 
 	// Issue an OIDC auth code for Headscale, using the real DID as sub

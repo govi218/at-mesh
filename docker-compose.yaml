@@ -10,7 +10,7 @@ services:
       - atmesh-data:/data
       - ./keys:/data/keys:ro
     ports:
-      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:9091:9091"
     networks:
       - mesh
 

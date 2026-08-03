@@ -1,38 +1,31 @@
 package server
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/govi218/at-mesh/internal/db"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 )
 
-// resolveHandleFromDID looks up a DID via PLC directory and returns the handle.
+var idDir = identity.DefaultDirectory()
+
+// resolveHandleFromDID looks up a DID via indigo's identity directory and returns the handle.
 func resolveHandleFromDID(did string) string {
-	resp, err := http.Get("https://plc.directory/" + did)
+	d, err := syntax.ParseDID(did)
 	if err != nil {
 		return ""
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	ident, err := idDir.LookupDID(context.Background(), d)
+	if err != nil {
 		return ""
 	}
-	var doc struct {
-		AlsoKnownAs []string `json:"alsoKnownAs"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-		return ""
-	}
-	for _, aka := range doc.AlsoKnownAs {
-		if strings.HasPrefix(aka, "at://") {
-			return strings.TrimPrefix(aka, "at://")
-		}
-	}
-	return ""
+	return ident.Handle.String()
 }
 
 // computeWebfingerEmail derives the email from handle + hostname.

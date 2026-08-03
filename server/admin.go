@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,39 @@ import (
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 )
+
+// resolveHandleFromDID looks up a DID via PLC directory and returns the handle.
+func resolveHandleFromDID(did string) string {
+	resp, err := http.Get("https://plc.directory/" + did)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var doc struct {
+		AlsoKnownAs []string `json:"alsoKnownAs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return ""
+	}
+	for _, aka := range doc.AlsoKnownAs {
+		if strings.HasPrefix(aka, "at://") {
+			return strings.TrimPrefix(aka, "at://")
+		}
+	}
+	return ""
+}
+
+// computeWebfingerEmail derives the email from handle + hostname.
+func computeWebfingerEmail(handle, hostname string) string {
+	if handle == "" {
+		return ""
+	}
+	local := strings.SplitN(handle, ".", 2)[0]
+	return local + "@" + hostname
+}
 
 // adminMiddleware checks if the user is authenticated as admin.
 // Returns 401 JSON for API requests, redirects to /admin/login for pages.
@@ -80,10 +114,15 @@ func (s *Server) handleAddWhitelist(e echo.Context) error {
 	}
 
 	entry := db.WhitelistEntry{
-		DID:    input.DID,
-		Handle: input.Handle,
-		Email:  input.Email,
-		Notes:  input.Notes,
+		DID:   input.DID,
+		Notes: input.Notes,
+	}
+
+	// Resolve handle from PLC directory
+	handle := resolveHandleFromDID(input.DID)
+	if handle != "" {
+		entry.Handle = handle
+		entry.Email = computeWebfingerEmail(handle, s.config.Hostname)
 	}
 	if err := s.db.DB.Create(&entry).Error; err != nil {
 		return e.JSON(http.StatusConflict, map[string]string{"error": "DID already exists"})

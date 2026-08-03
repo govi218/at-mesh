@@ -866,7 +866,7 @@ func TestWhitelistAdd(t *testing.T) {
 	base := startTestServer(t, s)
 	client := adminClient(t, base)
 
-	body := bytes.NewBufferString(`{"did":"did:plc:test123","handle":"test.bsky.social","email":"test@mesh.glados.computer","notes":"test entry"}`)
+	body := bytes.NewBufferString(`{"did":"did:plc:test123","notes":"test entry"}`)
 	req, _ := http.NewRequest("POST", base+"/api/v1/whitelist", body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -885,12 +885,11 @@ func TestWhitelistAdd(t *testing.T) {
 	if entry.DID != "did:plc:test123" {
 		t.Errorf("did = %v", entry.DID)
 	}
-	if entry.Handle != "test.bsky.social" {
-		t.Errorf("handle = %v", entry.Handle)
+	if entry.Notes != "test entry" {
+		t.Errorf("notes = %v", entry.Notes)
 	}
-	if entry.Email != "test@mesh.glados.computer" {
-		t.Errorf("email = %v", entry.Email)
-	}
+	// Handle and email are resolved from PLC directory at add time.
+	// Fake DIDs won't resolve, so they should be empty.
 }
 
 func TestWhitelistList(t *testing.T) {

@@ -24,6 +24,10 @@
 		.actions { display: flex; gap: 0.25rem; }
 		.edit-row { background: #16213e; }
 		.logout { position: absolute; top: 2rem; right: 2rem; }
+		.info-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1px solid #aaa; border-radius: 50%; font-size: 0.7rem; color: #aaa; cursor: help; position: relative; vertical-align: middle; margin-left: 0.25rem; }
+		.info-icon:hover .info-tooltip { display: block; }
+		.info-tooltip { display: none; position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: #0f3460; border: 1px solid #333; border-radius: 4px; padding: 0.5rem; font-size: 0.75rem; color: #ccc; white-space: nowrap; z-index: 10; line-height: 1.4; font-weight: normal; }
+		.muted { color: #666; font-style: italic; font-size: 0.8rem; }
 	</style>
 </head>
 <body>
@@ -36,14 +40,6 @@
 			<input id="new-did" placeholder="did:plc:...">
 		</div>
 		<div>
-			<label>Handle</label>
-			<input id="new-handle" placeholder="user.bsky.social">
-		</div>
-		<div>
-			<label>Email</label>
-			<input id="new-email" placeholder="user@example.com">
-		</div>
-		<div>
 			<label>Notes</label>
 			<input id="new-notes" placeholder="">
 		</div>
@@ -54,7 +50,17 @@
 
 	<table>
 		<thead>
-			<tr><th>DID</th><th>Handle</th><th>Email</th><th>Notes</th><th></th></tr>
+			<tr>
+				<th>DID</th>
+				<th>Handle</th>
+				<th>WebFinger Email
+					<span class="info-icon">i
+						<span class="info-tooltip">Auto-generated from handle + at-mesh hostname.<br>Use this email when signing up for services like Tailscale SaaS that use WebFinger-based OIDC discovery.</span>
+					</span>
+				</th>
+				<th>Notes</th>
+				<th></th>
+			</tr>
 		</thead>
 		<tbody id="entries"></tbody>
 	</table>
@@ -81,11 +87,17 @@
 			}
 		}
 
+		function webfingerEmail(e) {
+			if (!e.handle) return '<span class="muted">— pending auth —</span>';
+			const local = e.handle.split('.')[0];
+			return esc(local + '@' + window.location.hostname);
+		}
+
 		function renderRow(e) {
 			return `<tr>
 				<td>${esc(e.did)}</td>
-				<td>${esc(e.handle)}</td>
-				<td>${esc(e.email)}</td>
+				<td>${e.handle ? esc(e.handle) : '<span class="muted">—</span>'}</td>
+				<td>${webfingerEmail(e)}</td>
 				<td>${esc(e.notes)}</td>
 				<td class="actions">
 					<button class="btn-sm" onclick="startEdit(${e.id})">Edit</button>
@@ -97,8 +109,8 @@
 		function renderEditRow(e) {
 			return `<tr class="edit-row">
 				<td>${esc(e.did)}</td>
-				<td><input id="edit-handle-${e.id}" value="${esc(e.handle)}"></td>
-				<td><input id="edit-email-${e.id}" value="${esc(e.email)}"></td>
+				<td>${e.handle ? esc(e.handle) : '<span class="muted">—</span>'}</td>
+				<td>${webfingerEmail(e)}</td>
 				<td><input id="edit-notes-${e.id}" value="${esc(e.notes)}"></td>
 				<td class="actions">
 					<button class="btn-sm" onclick="saveEdit(${e.id})">Save</button>
@@ -117,15 +129,13 @@
 				headers: {'Content-Type': 'application/json'},
 				body: JSON.stringify({
 					did,
-					handle: document.getElementById('new-handle').value.trim(),
-					email: document.getElementById('new-email').value.trim(),
+					handle: '',
+					email: '',
 					notes: document.getElementById('new-notes').value.trim(),
 				})
 			});
 			if (resp.status === 201) {
 				document.getElementById('new-did').value = '';
-				document.getElementById('new-handle').value = '';
-				document.getElementById('new-email').value = '';
 				document.getElementById('new-notes').value = '';
 				load();
 			} else if (resp.status === 409) {
@@ -143,8 +153,8 @@
 				method: 'PUT',
 				headers: {'Content-Type': 'application/json'},
 				body: JSON.stringify({
-					handle: document.getElementById(`edit-handle-${id}`).value.trim(),
-					email: document.getElementById(`edit-email-${id}`).value.trim(),
+					handle: '',
+					email: '',
 					notes: document.getElementById(`edit-notes-${id}`).value.trim(),
 				})
 			});

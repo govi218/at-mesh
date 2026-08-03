@@ -61,7 +61,26 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 			return s.renderError(e, "Access Denied",
 				"Your AT Protocol identity is not authorized to join this mesh.")
 		}
-		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle, "email", entry.Email)
+		s.logger.Info("access granted — DID in whitelist", "did", did, "handle", entry.Handle)
+	}
+
+	// Resolve DID to handle via PLC directory
+	handle := resolveHandleFromDID(did)
+	if handle == "" {
+		s.logger.Error("error resolving DID via PLC directory", "did", did)
+		return s.renderError(e, "Identity Error", "Could not resolve your AT Protocol identity.")
+	}
+	s.logger.Info("resolved DID to handle", "did", did, "handle", handle)
+
+	// Compute webfinger email from handle + hostname
+	email := computeWebfingerEmail(handle, s.config.Hostname)
+
+	// Update whitelist entry with resolved handle and computed email
+	if entry.ID != 0 {
+		s.db.DB.Model(&entry).Updates(map[string]any{
+			"handle": handle,
+			"email":  email,
+		})
 	}
 
 	// Issue an OIDC auth code, using the real DID as sub
@@ -76,8 +95,8 @@ func (s *Server) handleATProtoCallback(e echo.Context) error {
 		CodeChallenge:       bridge.OidcCodeChallenge,
 		CodeChallengeMethod: bridge.OidcCodeChallengeMethod,
 		Sub:                 did,
-		PreferredUsername:   bridge.Handle,
-		Email:               entry.Email,
+		PreferredUsername:   handle,
+		Email:               email,
 		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	}
 

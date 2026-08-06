@@ -9,6 +9,3 @@ var authorizePageHTML string
 
 //go:embed templates/error.html
 var errorPageHTML string
-
-//go:embed templates/success.html
-var successPageHTML string

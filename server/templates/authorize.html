@@ -98,37 +98,6 @@
         button:hover {
             background: #2ea043;
         }
-        .divider {
-            border-top: 1px solid #30363d;
-            margin: 1.5rem 0;
-        }
-        .phase1-fallback {
-            background: #3d2e00;
-            border: 1px solid #9e6a03;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            color: #d29922;
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-        .phase1-fallback strong { color: #e3b341; }
-        .phase1-btn {
-            width: 100%;
-            background: transparent;
-            border: 1px solid #9e6a03;
-            border-radius: 6px;
-            padding: 0.75rem;
-            color: #d29922;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            margin-top: 0.5rem;
-            transition: background 0.15s;
-        }
-        .phase1-btn:hover {
-            background: #3d2e00;
-        }
     </style>
 </head>
 <body>
@@ -148,16 +117,6 @@
             <button type="submit">Continue with AT Protocol</button>
         </form>
 
-        <div class="divider"></div>
-
-        <div class="phase1-fallback">
-            <strong>Phase 1 — Auto-approve (debug)</strong><br>
-            Skip AT Protocol authentication and get a placeholder code.
-        </div>
-        <form action="/authorize" method="POST">
-            <input type="hidden" name="phase1" value="true">
-            <button type="submit" class="phase1-btn">Auto-approve (no auth)</button>
-        </form>
     </div>
 </body>
 </html>

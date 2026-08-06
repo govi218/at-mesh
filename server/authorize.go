@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/govi218/at-mesh/internal/db"
-	"github.com/govi218/at-mesh/oidc"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 )
@@ -81,14 +79,8 @@ func (s *Server) handleAuthorizeGet(e echo.Context) error {
 }
 
 // handleAuthorizePost handles the AT Protocol handle submission.
-// Phase 1: auto-approve (ignores handle, issues code immediately).
-// Phase 2: resolve handle → DID → PDS, redirect to PDS for auth.
+// It resolves the handle → DID → PDS, then redirects to the PDS for auth.
 func (s *Server) handleAuthorizePost(e echo.Context) error {
-	// Phase 1: if phase1=true in the form, auto-approve
-	if e.FormValue("phase1") == "true" {
-		return s.autoApproveFromSession(e)
-	}
-
 	handle := e.FormValue("handle")
 	if handle == "" {
 		return s.renderError(e, "Missing Handle", "An AT Protocol handle is required.")
@@ -147,96 +139,6 @@ func (s *Server) handleAuthorizePost(e echo.Context) error {
 
 	// Redirect the user to the PDS authorization page
 	return e.Redirect(http.StatusSeeOther, redirectURL)
-}
-
-// autoApproveFromSession reads the authorize params from the session
-// and issues an auth code (Phase 1 auto-approve flow).
-func (s *Server) autoApproveFromSession(e echo.Context) error {
-	sess, _ := session.Get("atmesh", e)
-
-	clientId, _ := sess.Values["client_id"].(string)
-	redirectUri, _ := sess.Values["redirect_uri"].(string)
-	scope, _ := sess.Values["scope"].(string)
-	state, _ := sess.Values["state"].(string)
-	nonce, _ := sess.Values["nonce"].(string)
-	codeChallenge, _ := sess.Values["code_challenge"].(string)
-	codeChallengeMethod, _ := sess.Values["code_challenge_method"].(string)
-
-	if clientId == "" || redirectUri == "" {
-		return s.renderError(e, "Session Expired", "Please restart the authorization flow.")
-	}
-
-	sub := "did:plc:placeholder"
-	preferredUsername := "placeholder"
-	email := s.config.AdminEmail
-
-	code := oidc.GenerateAuthCode()
-
-	authReq := &db.OidcAuthCode{
-		Code:                code,
-		ClientId:            clientId,
-		RedirectUri:         redirectUri,
-		Scope:               scope,
-		State:               state,
-		Nonce:               nonce,
-		CodeChallenge:       codeChallenge,
-		CodeChallengeMethod: codeChallengeMethod,
-		Sub:                 sub,
-		PreferredUsername:   preferredUsername,
-		Email:               email,
-		ExpiresAt:           time.Now().Add(10 * time.Minute),
-	}
-
-	if err := s.db.DB.Create(authReq).Error; err != nil {
-		s.logger.Error("error creating auth request", "err", err)
-		return s.renderError(e, "Server Error", "Could not create the authorization request.")
-	}
-
-	redirectUrl := fmt.Sprintf("%s?code=%s", redirectUri, code)
-	if state != "" {
-		redirectUrl += fmt.Sprintf("&state=%s", state)
-	}
-
-	// Show the success page with a redirect
-	html := strings.ReplaceAll(successPageHTML, "{{.ClientID}}", clientId)
-	html = strings.ReplaceAll(html, "{{.RedirectURL}}", redirectUrl)
-	return e.HTML(http.StatusOK, html)
-}
-
-// autoApprove is the direct auto-approve (no session, used by tests).
-func (s *Server) autoApprove(e echo.Context, input *AuthorizeGetInput) error {
-	sub := "did:plc:placeholder"
-	preferredUsername := "placeholder"
-	email := s.config.AdminEmail
-
-	code := oidc.GenerateAuthCode()
-
-	authReq := &db.OidcAuthCode{
-		Code:                code,
-		ClientId:            input.ClientId,
-		RedirectUri:         input.RedirectUri,
-		Scope:               input.Scope,
-		State:               input.State,
-		Nonce:               input.Nonce,
-		CodeChallenge:       input.CodeChallenge,
-		CodeChallengeMethod: input.CodeChallengeMethod,
-		Sub:                 sub,
-		PreferredUsername:   preferredUsername,
-		Email:               email,
-		ExpiresAt:           time.Now().Add(10 * time.Minute),
-	}
-
-	if err := s.db.DB.Create(authReq).Error; err != nil {
-		s.logger.Error("error creating auth request", "err", err)
-		return e.JSON(http.StatusInternalServerError, map[string]string{"error": "server_error"})
-	}
-
-	redirectUrl := fmt.Sprintf("%s?code=%s", input.RedirectUri, code)
-	if input.State != "" {
-		redirectUrl += fmt.Sprintf("&state=%s", input.State)
-	}
-
-	return e.Redirect(http.StatusSeeOther, redirectUrl)
 }
 
 // renderError renders the error page.

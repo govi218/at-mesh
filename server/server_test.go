@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/govi218/at-mesh/internal/db"
+	"github.com/govi218/at-mesh/oidc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -218,9 +219,6 @@ func TestAuthorizeShowsPage(t *testing.T) {
 	if !strings.Contains(html, "headscale") {
 		t.Error("page doesn't show client_id")
 	}
-	if !strings.Contains(html, "phase1") {
-		t.Error("page doesn't have phase1 form")
-	}
 }
 
 func TestAuthorizeUnknownClient(t *testing.T) {
@@ -263,79 +261,62 @@ func TestAuthorizeBadRedirectURI(t *testing.T) {
 	}
 }
 
-// fullAuthorizeFlow does the two-step Phase 1 flow:
-// 1. GET /authorize → get session cookie + HTML page
-// 2. POST /authorize with phase1=true → get success page with redirect URL
-// Returns the redirect URL (containing the code).
-func fullAuthorizeFlow(t *testing.T, base string) string {
-	client := makeClient()
+// createTestAuthCode creates an auth code directly in the DB for testing.
+// Returns the redirect URL containing the code (as the OIDC client would receive).
+func createTestAuthCode(t *testing.T, s *Server) string {
+	t.Helper()
 
-	// Step 1: GET /authorize — get the page + session cookie
-	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid+profile+email&state=test")
-	if err != nil {
-		t.Fatalf("authorize GET: %v", err)
+	code := oidc.GenerateAuthCode()
+	authReq := &db.OidcAuthCode{
+		Code:                code,
+		ClientId:            "headscale",
+		RedirectUri:         "http://localhost:9999/callback",
+		Scope:               "openid profile email",
+		State:               "test",
+		Sub:                 "did:plc:placeholder",
+		PreferredUsername:   "placeholder",
+		Email:               "admin@mesh.glados.computer",
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
 	}
-	resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		t.Fatalf("authorize GET status %d, want 200", resp.StatusCode)
-	}
-
-	// Step 2: POST /authorize with phase1=true — auto-approve
-	resp, err = client.PostForm(base+"/authorize", url.Values{
-		"phase1": {"true"},
-	})
-	if err != nil {
-		t.Fatalf("authorize POST: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		t.Fatalf("authorize POST status %d, want 200", resp.StatusCode)
+	if err := s.db.DB.Create(authReq).Error; err != nil {
+		t.Fatalf("create auth code: %v", err)
 	}
 
-	body, _ := io.ReadAll(resp.Body)
-	html := string(body)
-
-	// The success page contains the redirect URL in the script tag
-	// Extract it from: window.location.href = "..."
-	idx := strings.Index(html, `window.location.href = "`)
-	if idx == -1 {
-		t.Fatalf("success page doesn't contain redirect URL: %s", html)
-	}
-	start := idx + len(`window.location.href = "`)
-	end := strings.Index(html[start:], `"`)
-	if end == -1 {
-		t.Fatalf("can't find end of redirect URL: %s", html)
-	}
-
-	redirectURL := html[start : start+end]
-	if !strings.Contains(redirectURL, "code=") {
-		t.Fatalf("redirect URL doesn't contain code: %s", redirectURL)
-	}
-
+	redirectURL := fmt.Sprintf("http://localhost:9999/callback?code=%s&state=test", code)
 	return redirectURL
 }
 
-func TestPhase1AutoApprove(t *testing.T) {
-	s := setupTestServer(t)
-	base := startTestServer(t, s)
+// createTestAuthCodePKCE creates an auth code with PKCE challenge for testing.
+func createTestAuthCodePKCE(t *testing.T, s *Server, codeChallenge string) string {
+	t.Helper()
 
-	redirectURL := fullAuthorizeFlow(t, base)
+	code := oidc.GenerateAuthCode()
+	authReq := &db.OidcAuthCode{
+		Code:                code,
+		ClientId:            "headscale",
+		RedirectUri:         "http://localhost:9999/callback",
+		Scope:               "openid profile email",
+		State:               "test",
+		Sub:                 "did:plc:placeholder",
+		PreferredUsername:   "placeholder",
+		Email:               "admin@mesh.glados.computer",
+		CodeChallenge:       codeChallenge,
+		CodeChallengeMethod: "S256",
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
+	}
+	if err := s.db.DB.Create(authReq).Error; err != nil {
+		t.Fatalf("create auth code: %v", err)
+	}
 
-	if !strings.Contains(redirectURL, "http://localhost:9999/callback?code=") {
-		t.Errorf("redirect = %v, want callback with code", redirectURL)
-	}
-	if !strings.Contains(redirectURL, "state=test") {
-		t.Errorf("state not preserved in %v", redirectURL)
-	}
+	redirectURL := fmt.Sprintf("http://localhost:9999/callback?code=%s&state=test", code)
+	return redirectURL
 }
 
 func TestTokenExchange(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	redirectURL := fullAuthorizeFlow(t, base)
+	redirectURL := createTestAuthCode(t, s)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
@@ -371,7 +352,7 @@ func TestTokenWrongSecret(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	redirectURL := fullAuthorizeFlow(t, base)
+	redirectURL := createTestAuthCode(t, s)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
@@ -402,7 +383,7 @@ func TestTokenCodeReuse(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	redirectURL := fullAuthorizeFlow(t, base)
+	redirectURL := createTestAuthCode(t, s)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
@@ -452,7 +433,7 @@ func TestUserinfo(t *testing.T) {
 	base := startTestServer(t, s)
 
 	// Do a full Phase 1 flow to get a real access token
-	redirectURL := fullAuthorizeFlow(t, base)
+	redirectURL := createTestAuthCode(t, s)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
@@ -495,42 +476,6 @@ func TestUserinfo(t *testing.T) {
 
 // --- PKCE tests ---
 
-// fullAuthorizeFlowPKCE does the Phase 1 flow with PKCE.
-// Returns the redirect URL (containing the code).
-func fullAuthorizeFlowPKCE(t *testing.T, base, codeChallenge string) string {
-	client := makeClient()
-
-	resp, err := client.Get(base + "/authorize?client_id=headscale&redirect_uri=http://localhost:9999/callback&response_type=code&scope=openid+profile+email&state=test&code_challenge=" + codeChallenge + "&code_challenge_method=S256")
-	if err != nil {
-		t.Fatalf("authorize GET: %v", err)
-	}
-	resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		t.Fatalf("authorize GET status %d, want 200", resp.StatusCode)
-	}
-
-	resp, err = client.PostForm(base+"/authorize", url.Values{
-		"phase1": {"true"},
-	})
-	if err != nil {
-		t.Fatalf("authorize POST: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	html := string(body)
-
-	idx := strings.Index(html, `window.location.href = "`)
-	if idx == -1 {
-		t.Fatalf("success page doesn't contain redirect URL: %s", html)
-	}
-	start := idx + len(`window.location.href = "`)
-	end := strings.Index(html[start:], `"`)
-	redirectURL := html[start : start+end]
-	return redirectURL
-}
-
 func TestPKCEFlow(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
@@ -540,7 +485,7 @@ func TestPKCEFlow(t *testing.T) {
 	h := sha256.Sum256([]byte(codeVerifier))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
 
-	redirectURL := fullAuthorizeFlowPKCE(t, base, codeChallenge)
+	redirectURL := createTestAuthCodePKCE(t, s, codeChallenge)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
@@ -578,7 +523,7 @@ func TestPKCEInvalidVerifier(t *testing.T) {
 	h := sha256.Sum256([]byte(codeVerifier))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(h[:])
 
-	redirectURL := fullAuthorizeFlowPKCE(t, base, codeChallenge)
+	redirectURL := createTestAuthCodePKCE(t, s, codeChallenge)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 
@@ -717,7 +662,7 @@ func TestTokenMismatchedRedirectURI(t *testing.T) {
 	s := setupTestServer(t)
 	base := startTestServer(t, s)
 
-	redirectURL := fullAuthorizeFlow(t, base)
+	redirectURL := createTestAuthCode(t, s)
 	u, _ := url.Parse(redirectURL)
 	code := u.Query().Get("code")
 

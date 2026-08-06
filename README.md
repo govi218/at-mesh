@@ -1,4 +1,4 @@
-# at-mesh
+# at-oidc
 
 AT Protocol identity bridge for WireGuard mesh networks. Provides OIDC
 authentication for Headscale, with DID-based membership control via a

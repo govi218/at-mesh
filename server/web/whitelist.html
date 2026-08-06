@@ -88,9 +88,8 @@
 		}
 
 		function webfingerEmail(e) {
-			if (!e.handle) return '<span class="muted">— pending auth —</span>';
-			const local = e.handle.split('.')[0];
-			return esc(local + '@' + window.location.hostname);
+			if (!e.email) return '<span class="muted">— pending auth —</span>';
+			return esc(e.email);
 		}
 
 		function renderRow(e) {

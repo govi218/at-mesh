@@ -4,7 +4,7 @@ OIDC identity provider that bridges AT Protocol identity to standard OIDC
 clients. Users authenticate with their ATProto handle (via any PDS), and
 at-oidc issues standard OIDC id_tokens with the user's DID as the `sub` claim.
 
-Works with any OIDC client — Headscale, Tailscale SaaS, or any app that
+Works with any OIDC client - Headscale, Tailscale SaaS, or any app that
 supports custom OIDC providers.
 
 ## How It Works
@@ -28,12 +28,12 @@ OIDC Client (Headscale, Tailscale, etc.)
 
 ## Features
 
-- **AT Protocol OAuth** via indigo — users authenticate with any PDS
-- **OIDC provider** — discovery, JWKS, authorize, token, userinfo endpoints
-- **Whitelist membership control** — restrict access to specific DIDs
-- **WebFinger** — gated by whitelist (only responds for known handles)
-- **Multi-client config** — serve multiple OIDC clients via `clients.yaml`
-- **Admin UI** — standalone whitelist management page
+- **AT Protocol OAuth** via indigo - users authenticate with any PDS
+- **OIDC provider** - discovery, JWKS, authorize, token, userinfo endpoints
+- **Whitelist membership control** - restrict access to specific DIDs
+- **WebFinger** - gated by whitelist (only responds for known handles)
+- **Multi-client config** - serve multiple OIDC clients via `clients.yaml`
+- **Admin UI** - standalone whitelist management page
 
 ## Setup
 
@@ -76,32 +76,14 @@ docker compose build
 docker compose up -d
 ```
 
-### 4. Headscale Connectivity
-
-The Tailscale TS2021 noise protocol uses HTTP/1.1 `Upgrade` headers.
-Cloudflare tunnels strip non-standard Upgrade values, so the control plane
-connection fails when routed through Cloudflare.
-
-Headscale must be exposed via **Caddy** (not Cloudflare Tunnel) so Upgrade
-headers pass through:
-
-1. DNS A record for `headscale.example.com` → router public IP
-   (DNS-only, NOT proxied through Cloudflare)
-2. Router port-forwards WAN 443 → server:443
-3. Caddy handles TLS (ACME) + reverse proxy to Headscale (`:8081`)
-
-at-oidc itself can stay behind Cloudflare — the OIDC flow is plain HTTP,
-no Upgrade headers needed. Only the Headscale control plane requires the
-Caddy path.
-
 ## Limitations
 
-- **No automatic eviction** — removing a DID from the whitelist prevents new
+- **No automatic eviction** - removing a DID from the whitelist prevents new
   auth but doesn't kick existing sessions. OIDC is authentication-only; eviction
   is app-specific (e.g., call Headscale's API to delete the node).
-- **No token revocation** — issued id_tokens are valid until expiry (10 min).
-- **Email length** — email is computed as `<handle>@<hostname>`. ATProto handles
+- **No token revocation** - issued id_tokens are valid until expiry (10 min).
+- **Email length** - email is computed as `<handle>@<hostname>`. ATProto handles
   can exceed the RFC 5321 local part limit of 64 chars. Fine for typical handles,
   breaks for edge cases.
-- **Single instance** — SQLite backend, no HA. If at-oidc is down, new auth fails
+- **Single instance** - SQLite backend, no HA. If at-oidc is down, new auth fails
   until it's back. Existing sessions are unaffected.

@@ -29,12 +29,14 @@ func resolveHandleFromDID(did string) string {
 }
 
 // computeWebfingerEmail derives the email from handle + hostname.
+// Uses the full handle as the local part to avoid collisions (e.g. gov.bsky.social vs gov.glados.computer).
+// TODO: RFC 5321 limits email local part to 64 chars. ATProto handles can be up to ~244 chars.
+// Long handles will produce invalid emails. Consider hashing or truncating with a disambiguator.
 func computeWebfingerEmail(handle, hostname string) string {
 	if handle == "" {
 		return ""
 	}
-	local := strings.SplitN(handle, ".", 2)[0]
-	return local + "@" + hostname
+	return handle + "@" + hostname
 }
 
 // adminMiddleware checks if the user is authenticated as admin.

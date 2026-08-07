@@ -28,6 +28,19 @@ func resolveHandleFromDID(did string) string {
 	return ident.Handle.String()
 }
 
+// resolveDIDFromHandle looks up a handle via indigo's identity directory and returns the DID.
+func resolveDIDFromHandle(handle string) string {
+	h, err := syntax.ParseHandle(handle)
+	if err != nil {
+		return ""
+	}
+	ident, err := idDir.LookupHandle(context.Background(), h)
+	if err != nil {
+		return ""
+	}
+	return ident.DID.String()
+}
+
 // computeWebfingerEmail derives the email from handle + hostname.
 // Uses the full handle as the local part to avoid collisions (e.g. gov.bsky.social vs gov.glados.computer).
 // TODO: RFC 5321 limits email local part to 64 chars. ATProto handles can be up to ~244 chars.
@@ -94,6 +107,7 @@ func (s *Server) handleListWhitelist(e echo.Context) error {
 }
 
 // handleAddWhitelist adds a new whitelist entry.
+// Accepts either a DID (did:plc:... / did:web:...) or a handle (e.g. john.bsky.social).
 func (s *Server) handleAddWhitelist(e echo.Context) error {
 	var input struct {
 		DID    string `json:"did"`
@@ -105,16 +119,31 @@ func (s *Server) handleAddWhitelist(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 	if input.DID == "" {
-		return e.JSON(http.StatusBadRequest, map[string]string{"error": "did is required"})
+		return e.JSON(http.StatusBadRequest, map[string]string{"error": "did or handle is required"})
+	}
+
+	did := input.DID
+	handle := ""
+
+	// If input is a handle (not a DID), resolve it to a DID
+	if !strings.HasPrefix(did, "did:") {
+		resolved := resolveDIDFromHandle(did)
+		if resolved == "" {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "could not resolve handle"})
+		}
+		handle = did
+		did = resolved
 	}
 
 	entry := db.WhitelistEntry{
-		DID:   input.DID,
+		DID:   did,
 		Notes: input.Notes,
 	}
 
-	// Resolve handle from PLC directory
-	handle := resolveHandleFromDID(input.DID)
+	// Resolve handle from PLC directory if not already set
+	if handle == "" {
+		handle = resolveHandleFromDID(did)
+	}
 	if handle != "" {
 		entry.Handle = handle
 		entry.Email = computeWebfingerEmail(handle, s.config.Hostname)
@@ -185,7 +214,7 @@ func (s *Server) handleUpdateWhitelist(e echo.Context) error {
 const adminLoginHTML = `<!DOCTYPE html>
 <html>
 <head>
-	<title>at-mesh Admin</title>
+	<title>at-oidc Admin</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<style>
 		body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
@@ -200,7 +229,7 @@ const adminLoginHTML = `<!DOCTYPE html>
 </head>
 <body>
 	<div class="card">
-		<h1>at-mesh Admin</h1>
+		<h1>at-oidc Admin</h1>
 		__ERROR__
 		<form method="POST" action="/admin/login">
 			<input type="password" name="token" placeholder="Admin token" autofocus required>

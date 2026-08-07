@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>at-mesh Admin</title>
+	<title>at-oidc Admin</title>
 	<style>
 		:root { color-scheme: dark; }
 		body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; margin: 0; padding: 2rem; }
@@ -31,13 +31,13 @@
 	</style>
 </head>
 <body>
-	<h1>at-mesh Whitelist</h1>
+	<h1>at-oidc Whitelist</h1>
 	<button class="logout btn-danger btn-sm" onclick="logout()">Logout</button>
 
 	<div class="form-row">
 		<div>
-			<label>DID</label>
-			<input id="new-did" placeholder="did:plc:...">
+			<label>DID or Handle</label>
+			<input id="new-did" placeholder="did:plc:... or john.bsky.social">
 		</div>
 		<div>
 			<label>Notes</label>
@@ -55,7 +55,7 @@
 				<th>Handle</th>
 				<th>WebFinger Email
 					<span class="info-icon">i
-						<span class="info-tooltip">Auto-generated from handle + at-mesh hostname.<br>Use this email when signing up for services like Tailscale SaaS that use WebFinger-based OIDC discovery.</span>
+						<span class="info-tooltip">Auto-generated from handle + at-oidc hostname.<br>Use this email when signing up for services like Tailscale SaaS that use WebFinger-based OIDC discovery.</span>
 					</span>
 				</th>
 				<th>Notes</th>
@@ -122,7 +122,7 @@
 
 		async function addEntry() {
 			const did = document.getElementById('new-did').value.trim();
-			if (!did) return alert('DID is required');
+			if (!did) return alert('DID or handle is required');
 			const resp = await fetch(api, {
 				method: 'POST',
 				headers: {'Content-Type': 'application/json'},

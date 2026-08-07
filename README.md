@@ -4,8 +4,8 @@ OIDC identity provider that bridges AT Protocol identity to standard OIDC
 clients. Users authenticate with their ATProto handle (via any PDS), and
 at-oidc issues standard OIDC id_tokens with the user's DID as the `sub` claim.
 
-Works with any OIDC client - Headscale, Tailscale SaaS, or any app that
-supports custom OIDC providers.
+Works with any OIDC client, though built specifically for Headscale
+and Tailscale SaaS.
 
 ## How It Works
 

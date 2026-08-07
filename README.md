@@ -7,6 +7,8 @@ at-oidc issues standard OIDC id_tokens with the user's DID as the `sub` claim.
 Works with any OIDC client, though built specifically for Headscale
 and Tailscale SaaS.
 
+![at-oidc demo](at-oidc.gif)
+
 ## How It Works
 
 ```
